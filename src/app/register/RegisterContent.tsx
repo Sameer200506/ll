@@ -60,7 +60,7 @@ export default function RegisterContent() {
               style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-2))" }}>
               <Zap className="w-5 h-5 text-white" />
             </div>
-            <span className="text-2xl font-bold gradient-text">EduFlow</span>
+            <span className="text-2xl font-bold gradient-text">CodeKrafters.in</span>
           </div>
           <h1 className="text-2xl font-bold">Create your account</h1>
           <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>Join thousands of learners today</p>

@@ -52,7 +52,7 @@ export default function LandingPage() {
             style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-2))" }}>
             <Zap className="w-4 h-4 text-white" />
           </div>
-          <span className="text-xl font-bold gradient-text">EduFlow</span>
+          <span className="text-xl font-bold gradient-text">CodeKrafters.in</span>
         </div>
         <div className="flex items-center gap-3">
           <Link href="/login">
@@ -82,7 +82,7 @@ export default function LandingPage() {
             <span className="gradient-text">Grow Faster</span>
           </h1>
           <p className="text-xl mb-10 max-w-2xl mx-auto" style={{ color: "var(--text-secondary)" }}>
-            EduFlow combines YouTube-powered courses, live Google Meet classes, interactive quizzes, and real-time progress tracking — all in one beautiful platform.
+            CodeKrafters.in combines YouTube-powered courses, live Google Meet classes, interactive quizzes, and real-time progress tracking — all in one beautiful platform.
           </p>
           <div className="flex flex-wrap gap-4 justify-center">
             <Link href="/register">
@@ -184,7 +184,7 @@ export default function LandingPage() {
         <div className="max-w-2xl mx-auto p-12 rounded-3xl border"
           style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
           <h2 className="text-3xl font-bold mb-4">Ready to get started?</h2>
-          <p className="mb-8" style={{ color: "var(--text-secondary)" }}>Join thousands of learners and teachers on EduFlow today.</p>
+          <p className="mb-8" style={{ color: "var(--text-secondary)" }}>Join thousands of learners and teachers on CodeKrafters.in today.</p>
           <Link href="/register">
             <Button size="lg">Create Your Free Account <ArrowRight className="w-5 h-5" /></Button>
           </Link>
@@ -195,9 +195,9 @@ export default function LandingPage() {
       <footer className="border-t py-8 text-center text-sm px-6" style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}>
         <div className="flex items-center justify-center gap-2 mb-2">
           <Zap className="w-4 h-4" style={{ color: "var(--accent)" }} />
-          <span className="font-semibold" style={{ color: "var(--text-primary)" }}>EduFlow</span>
+          <span className="font-semibold" style={{ color: "var(--text-primary)" }}>CodeKrafters.in</span>
         </div>
-        <p>© 2026 EduFlow. Built for modern learners.</p>
+        <p>© 2026 CodeKrafters.in. Built for modern learners.</p>
       </footer>
     </div>
   );

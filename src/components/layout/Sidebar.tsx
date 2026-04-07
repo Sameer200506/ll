@@ -53,7 +53,7 @@ export function Sidebar() {
         >
           <Zap className="w-4 h-4 text-white" />
         </div>
-        <span className="text-lg font-bold gradient-text">EduFlow</span>
+        <span className="text-lg font-bold gradient-text">CodeKrafters.in</span>
       </div>
 
       {/* User info */}

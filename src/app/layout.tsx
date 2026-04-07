@@ -7,8 +7,8 @@ import { Toaster } from "sonner";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "EduFlow — Modern Learning Platform",
-  description: "Learn, grow, and connect with EduFlow — your all-in-one LMS with YouTube courses, live classes, and AI-powered quizzes.",
+  title: "CodeKrafters.in — Modern Learning Platform",
+  description: "Learn, grow, and connect with CodeKrafters.in — your all-in-one LMS with YouTube courses, live classes, and AI-powered quizzes.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

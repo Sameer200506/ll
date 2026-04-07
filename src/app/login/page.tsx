@@ -53,7 +53,7 @@ export default function LoginPage() {
               style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-2))" }}>
               <Zap className="w-5 h-5 text-white" />
             </div>
-            <span className="text-2xl font-bold gradient-text">EduFlow</span>
+            <span className="text-2xl font-bold gradient-text">CodeKrafters.in</span>
           </div>
           <h1 className="text-2xl font-bold">Welcome back</h1>
           <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>Sign in to continue learning</p>
