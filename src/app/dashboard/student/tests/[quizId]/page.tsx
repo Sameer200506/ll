@@ -25,7 +25,7 @@ export default function QuizPlayerPage({ params }: { params: Promise<{ quizId: s
   useEffect(() => {
     if (!quizId) return;
     (async () => {
-      const all = await getAllQuizzes();
+      const all = await getAllQuizzes() as any[];
       const found = all.find((q: any) => q.id === quizId);
       setQuiz(found);
       if (found) {
