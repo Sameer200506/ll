@@ -9,7 +9,6 @@ import {
   deleteDoc,
   query,
   where,
-  orderBy,
   arrayUnion,
 } from "firebase/firestore";
 import { db } from "./firebase";
@@ -79,11 +78,11 @@ export async function addLesson(data: any) {
 export async function getLessonsByCourse(courseId: string) {
   const q = query(
     collection(db, "lessons"),
-    where("courseId", "==", courseId),
-    orderBy("order", "asc")
+    where("courseId", "==", courseId)
   );
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const lessons = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as any[];
+  return lessons.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 }
 
 export async function deleteLesson(lessonId: string) {
