@@ -41,7 +41,7 @@ export function DashboardLayout({ children, title, description }: DashboardLayou
         {/* Top bar */}
         <div
           className="sticky top-0 z-30 flex items-center justify-between px-8 py-4 border-b"
-          style={{ background: "rgba(13,15,20,0.8)", backdropFilter: "blur(12px)", borderColor: "var(--border)" }}
+          style={{ background: "rgba(248,249,255,0.88)", backdropFilter: "blur(12px)", borderColor: "var(--border)" }}
         >
           <div>
             <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{title}</h1>

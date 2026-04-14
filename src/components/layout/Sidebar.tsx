@@ -68,7 +68,7 @@ export function Sidebar() {
           <div className="min-w-0">
             <p className="text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>{user?.name}</p>
             <p className="text-xs capitalize px-1.5 py-0.5 rounded-full inline-block mt-0.5"
-              style={{ background: user?.role === "teacher" ? "rgba(108,99,255,0.2)" : "rgba(16,185,129,0.2)", color: user?.role === "teacher" ? "var(--accent-2)" : "var(--success)" }}>
+              style={{ background: user?.role === "teacher" ? "rgba(37,99,235,0.15)" : "rgba(5,150,105,0.15)", color: user?.role === "teacher" ? "var(--accent)" : "var(--success)" }}>
               {user?.role}
             </p>
           </div>

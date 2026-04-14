@@ -76,9 +76,9 @@ export default function RegisterContent() {
                 onClick={() => setRole(r)}
                 className="flex-1 flex flex-col items-center gap-2 p-4 rounded-xl border transition-all duration-200"
                 style={{
-                  background: role === r ? "rgba(108,99,255,0.15)" : "var(--surface-2)",
+                  background: role === r ? "rgba(37,99,235,0.1)" : "var(--surface-2)",
                   borderColor: role === r ? "var(--accent)" : "var(--border)",
-                  color: role === r ? "var(--accent-2)" : "var(--text-secondary)"
+                  color: role === r ? "var(--accent)" : "var(--text-secondary)"
                 }}
               >
                 {r === "student" ? <GraduationCap className="w-5 h-5" /> : <BookOpen className="w-5 h-5" />}

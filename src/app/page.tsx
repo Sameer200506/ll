@@ -46,7 +46,7 @@ export default function LandingPage() {
     <div className="min-h-screen" style={{ background: "var(--background)" }}>
       {/* Navbar */}
       <nav className="border-b px-6 py-4 flex items-center justify-between sticky top-0 z-50"
-        style={{ background: "rgba(13,15,20,0.9)", backdropFilter: "blur(12px)", borderColor: "var(--border)" }}>
+        style={{ background: "rgba(248,249,255,0.92)", backdropFilter: "blur(12px)", borderColor: "var(--border)" }}>
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg flex items-center justify-center"
             style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-2))" }}>
@@ -68,13 +68,13 @@ export default function LandingPage() {
       <section className="relative px-6 py-24 text-center overflow-hidden">
         {/* BG glow */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full opacity-10 blur-3xl"
-            style={{ background: "var(--accent)" }} />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] rounded-full opacity-20 blur-3xl"
+            style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-2))" }} />
         </div>
 
         <div className="relative max-w-4xl mx-auto animate-fade-in">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm mb-6 border"
-            style={{ background: "rgba(108,99,255,0.1)", borderColor: "rgba(108,99,255,0.3)", color: "var(--accent-2)" }}>
+            style={{ background: "rgba(37,99,235,0.08)", borderColor: "rgba(37,99,235,0.25)", color: "var(--accent-2)" }}>
             <Star className="w-3.5 h-3.5" /> The modern way to learn online
           </div>
           <h1 className="text-5xl md:text-7xl font-extrabold leading-tight mb-6">
@@ -120,7 +120,7 @@ export default function LandingPage() {
             {courses.slice(0, 3).map((course: any) => (
               <Card key={course.id} className="card-hover flex flex-col">
                 <div className="h-44 rounded-t-2xl overflow-hidden flex items-center justify-center relative"
-                  style={{ background: "linear-gradient(135deg, #1a1e2a, #6c63ff22)" }}>
+                  style={{ background: "linear-gradient(135deg, #eef1ff, #dde3f7)" }}>
                   {course.thumbnailUrl ? (
                     <img src={course.thumbnailUrl} alt={course.title} className="w-full h-full object-cover" />
                   ) : (
@@ -169,7 +169,7 @@ export default function LandingPage() {
           {features.map(({ icon: Icon, title, desc }) => (
             <div key={title} className="card-hover p-6 rounded-2xl border" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
               <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4"
-                style={{ background: "rgba(108,99,255,0.15)" }}>
+                style={{ background: "rgba(37,99,235,0.1)" }}>
                 <Icon className="w-5 h-5" style={{ color: "var(--accent)" }} />
               </div>
               <h3 className="font-semibold mb-2">{title}</h3>

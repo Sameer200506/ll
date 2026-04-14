@@ -1,19 +1,20 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0d0f14;
-  --surface: #13161e;
-  --surface-2: #1a1e2a;
-  --border: #252836;
-  --text-primary: #e8eaf0;
-  --text-secondary: #8891a4;
-  --accent: #6c63ff;
-  --accent-2: #a78bfa;
-  --accent-glow: rgba(108, 99, 255, 0.3);
-  --success: #10b981;
-  --warning: #f59e0b;
-  --danger: #ef4444;
-  --info: #3b82f6;
+  --background: #f8f9ff;
+  --surface: #ffffff;
+  --surface-2: #eef1ff;
+  --border: #dde3f7;
+  --text-primary: #1a1d3a;
+  --text-secondary: #5a6385;
+  --accent: #2563eb;
+  --accent-2: #7c3aed;
+  --accent-orange: #f97316;
+  --accent-glow: rgba(37, 99, 235, 0.2);
+  --success: #059669;
+  --warning: #f97316;
+  --danger: #dc2626;
+  --info: #2563eb;
 }
 
 @theme inline {
@@ -40,7 +41,7 @@ body {
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--background); }
+::-webkit-scrollbar-track { background: var(--surface-2); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
@@ -49,21 +50,21 @@ body {
 
 /* Glassmorphism utility */
 .glass {
-  background: rgba(26, 30, 42, 0.7);
+  background: rgba(255, 255, 255, 0.75);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border);
 }
 
 .gradient-text {
-  background: linear-gradient(135deg, #6c63ff, #a78bfa, #38bdf8);
+  background: linear-gradient(135deg, #2563eb, #7c3aed, #f97316);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
 .gradient-bg {
-  background: linear-gradient(135deg, #6c63ff 0%, #a78bfa 50%, #38bdf8 100%);
+  background: linear-gradient(135deg, #2563eb 0%, #7c3aed 55%, #f97316 100%);
 }
 
 .card-hover {
@@ -72,7 +73,7 @@ body {
 
 .card-hover:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 32px rgba(108, 99, 255, 0.2);
+  box-shadow: 0 8px 32px rgba(37, 99, 235, 0.12);
   border-color: var(--accent);
 }
 
@@ -97,7 +98,7 @@ body {
 }
 
 .skeleton {
-  background: linear-gradient(90deg, var(--surface) 25%, var(--surface-2) 50%, var(--surface) 75%);
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--border) 50%, var(--surface-2) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: 6px;
@@ -110,7 +111,7 @@ body {
 }
 
 .nav-item.active {
-  background: linear-gradient(90deg, rgba(108,99,255,0.2), transparent);
+  background: linear-gradient(90deg, rgba(37,99,235,0.12), transparent);
   border-left: 3px solid var(--accent);
   color: var(--accent-2);
 }
