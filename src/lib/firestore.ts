@@ -85,8 +85,32 @@ export async function getLessonsByCourse(courseId: string) {
   return lessons.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 }
 
+export async function updateLesson(lessonId: string, data: any) {
+  await updateDoc(doc(db, "lessons", lessonId), data);
+}
+
 export async function deleteLesson(lessonId: string) {
   await deleteDoc(doc(db, "lessons", lessonId));
+}
+
+// ─── RESOURCES ────────────────────────────────────────────────────────────────
+
+export async function addResource(data: any) {
+  const ref = await addDoc(collection(db, "resources"), {
+    ...data,
+    createdAt: new Date().toISOString(),
+  });
+  return { id: ref.id };
+}
+
+export async function getResourcesByCourse(courseId: string) {
+  const q = query(collection(db, "resources"), where("courseId", "==", courseId));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as any[];
+}
+
+export async function deleteResource(resourceId: string) {
+  await deleteDoc(doc(db, "resources", resourceId));
 }
 
 // ─── ENROLLMENTS ──────────────────────────────────────────────────────────────
@@ -167,6 +191,14 @@ export async function deleteSchedule(scheduleId: string) {
 export async function createQuiz(data: any) {
   const ref = await addDoc(collection(db, "quizzes"), data);
   return { id: ref.id };
+}
+
+export async function updateQuiz(quizId: string, data: any) {
+  await updateDoc(doc(db, "quizzes", quizId), data);
+}
+
+export async function deleteQuiz(quizId: string) {
+  await deleteDoc(doc(db, "quizzes", quizId));
 }
 
 export async function getQuizzesByCourse(courseId: string) {
