@@ -47,12 +47,7 @@ export function Sidebar() {
     >
       {/* Logo */}
       <div className="flex items-center gap-3 px-6 py-6 border-b" style={{ borderColor: "var(--border)" }}>
-        <div
-          className="w-8 h-8 rounded-lg flex items-center justify-center"
-          style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-2))" }}
-        >
-          <Zap className="w-4 h-4 text-white" />
-        </div>
+        <img src="/assets/Favicon.png" alt="CodeKrafters Logo" className="w-8 h-8 object-contain" />
         <span className="text-lg font-bold gradient-text">CodeKrafters.in</span>
       </div>
 

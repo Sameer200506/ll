@@ -49,10 +49,7 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-4">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-              style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-2))" }}>
-              <Zap className="w-5 h-5 text-white" />
-            </div>
+            <img src="/assets/Favicon.png" alt="CodeKrafters Logo" className="w-10 h-10 object-contain" />
             <span className="text-2xl font-bold gradient-text">CodeKrafters.in</span>
           </div>
           <h1 className="text-2xl font-bold">Welcome back</h1>

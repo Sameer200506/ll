@@ -48,10 +48,7 @@ export default function LandingPage() {
       <nav className="border-b px-6 py-4 flex items-center justify-between sticky top-0 z-50"
         style={{ background: "rgba(248,249,255,0.92)", backdropFilter: "blur(12px)", borderColor: "var(--border)" }}>
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-            style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-2))" }}>
-            <Zap className="w-4 h-4 text-white" />
-          </div>
+          <img src="/assets/mainlogo.png" alt="CodeKrafters Logo" className="w-8 h-8 object-contain rounded-lg" />
           <span className="text-xl font-bold gradient-text">CodeKrafters.in</span>
         </div>
         <div className="flex items-center gap-3">
@@ -94,10 +91,71 @@ export default function LandingPage() {
               <Button size="lg" variant="outline">Become a Teacher</Button>
             </Link>
           </div>
+
+          {/* Technology Banner */}
+          <div className="mt-16 w-full max-w-5xl mx-auto rounded-3xl overflow-hidden shadow-2xl border" style={{ borderColor: "var(--border)" }}>
+            <img src="/assets/banner.png" alt="Technology Banner" className="w-full h-auto object-cover" />
+          </div>
+        </div>
+      </section>
+
+      {/* Introduction Section */}
+      <section className="px-6 py-20 max-w-7xl mx-auto border-t" style={{ borderColor: "var(--border)" }}>
+        <div className="text-center mb-16">
+          <h2 className="text-4xl font-bold mb-4">Discover the <span className="gradient-text">CodeKrafters</span> Experience</h2>
+          <p className="max-w-2xl mx-auto text-lg" style={{ color: "var(--text-secondary)" }}>
+            Our platform is built to make coding accessible, interactive, and fun. 
+            Watch our introductory previews and explore how we structure modern learning.
+          </p>
+        </div>
+        
+        {/* Videos Container */}
+        <div className="flex flex-col gap-8 relative items-center max-w-5xl mx-auto">
+          {/* Background Glow */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] rounded-full opacity-10 blur-3xl pointer-events-none"
+            style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-2))" }} />
+            
+          {/* Main Large Video */}
+          <div className="w-full rounded-3xl overflow-hidden border-2 shadow-2xl relative z-10" style={{ borderColor: "var(--border)", background: "#000" }}>
+            <video 
+              src="/assets/WhatsApp%20Video%202026-04-12%20at%2012.23.52%20AM%20(1).mp4" 
+              autoPlay 
+              muted 
+              loop 
+              playsInline 
+              controls
+              className="w-full max-h-[500px] object-contain"
+            />
+          </div>
+          
+          {/* Two Smaller Videos Side by Side */}
+          <div className="grid md:grid-cols-2 gap-6 w-full relative z-10">
+            <div className="rounded-2xl overflow-hidden border bg-black shadow-lg" style={{ borderColor: "var(--border)" }}>
+              <video 
+                src="/assets/WhatsApp%20Video%202026-04-12%20at%2012.23.53%20AM%20(1).mp4" 
+                autoPlay 
+                muted 
+                loop 
+                playsInline 
+                className="w-full h-full object-cover max-h-[300px] opacity-80 hover:opacity-100 transition-opacity"
+              />
+            </div>
+            <div className="rounded-2xl overflow-hidden border bg-black shadow-lg" style={{ borderColor: "var(--border)" }}>
+              <video 
+                src="/assets/WhatsApp%20Video%202026-04-12%20at%2012.23.53%20AM%20(2).mp4" 
+                autoPlay 
+                muted 
+                loop 
+                playsInline 
+                className="w-full h-full object-cover max-h-[300px] opacity-80 hover:opacity-100 transition-opacity"
+              />
+            </div>
+          </div>
         </div>
       </section>
 
       {/* Stats */}
+
       <section className="px-6 py-12 border-y" style={{ borderColor: "var(--border)" }}>
         <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8">
           {stats.map(({ label, value }) => (
@@ -152,7 +210,7 @@ export default function LandingPage() {
             ))}
           </div>
           <div className="text-center mt-12">
-            <Link href="/login">
+            <Link href="/courses">
               <Button variant="outline" size="lg" className="gap-2">View Full Catalog <ArrowRight className="w-4 h-4" /></Button>
             </Link>
           </div>
@@ -194,7 +252,7 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="border-t py-8 text-center text-sm px-6" style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}>
         <div className="flex items-center justify-center gap-2 mb-2">
-          <Zap className="w-4 h-4" style={{ color: "var(--accent)" }} />
+          <img src="/assets/Favicon.png" alt="CodeKrafters Logo" className="w-5 h-5 object-contain" />
           <span className="font-semibold" style={{ color: "var(--text-primary)" }}>CodeKrafters.in</span>
         </div>
         <p>© 2026 CodeKrafters.in. Built for modern learners.</p>
