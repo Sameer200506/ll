@@ -17,13 +17,14 @@ import {
   getResourcesByCourse, addResource, deleteResource,
   getEnrollmentsByCourse, getAllUsers,
   getQuizzesByCourse, createQuiz, updateQuiz, deleteQuiz,
+  assignProject, getProjectsByCourse, gradeProject
 } from "@/lib/firestore";
 import {
   Plus, Trash2, PlayCircle, ArrowLeft, ExternalLink,
   Pencil, ChevronUp, ChevronDown, Link2, FileText,
   Settings, Users, Save, Check, X,
   Play, File, Globe, Presentation,
-  ClipboardList, CheckCircle2, BookOpen,
+  ClipboardList, CheckCircle2, BookOpen, FolderOpen, Send, FolderPlus
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -192,7 +193,19 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
   const [quizzes, setQuizzes] = useState<any[]>([]);
   const [resources, setResources] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // assign project dialog
+  const [projOpen, setProjOpen] = useState(false);
+  const [projForm, setProjForm] = useState({ studentId: "", title: "", description: "" });
+  const [assigningProj, setAssigningProj] = useState(false);
+
+  // grading dialog
+  const [gradingOpen, setGradingOpen] = useState(false);
+  const [gradingIds, setGradingIds] = useState<string | null>(null);
+  const [gradingForm, setGradingForm] = useState({ grade: "", feedback: "" });
+  const [gradingInProgress, setGradingInProgress] = useState(false);
 
   // lesson dialog
   const [lessonOpen, setLessonOpen] = useState(false);
@@ -229,11 +242,13 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
       getLessonsByCourse(courseId),
       getResourcesByCourse(courseId),
       getQuizzesByCourse(courseId),
+      getProjectsByCourse(courseId),
     ]);
     setCourse(c);
     setLessons(l);
     setResources(r);
     setQuizzes(q);
+    setProjects(projArr);
     setSettingsForm({
       title: c?.title ?? "",
       description: c?.description ?? "",
@@ -448,6 +463,9 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
           </TabsTrigger>
           <TabsTrigger value="resources" className="gap-2">
             <Link2 className="w-4 h-4" /> Resources
+          </TabsTrigger>
+          <TabsTrigger value="projects" className="gap-2">
+            <FolderOpen className="w-4 h-4" /> Projects
           </TabsTrigger>
           <TabsTrigger value="settings" className="gap-2">
             <Settings className="w-4 h-4" /> Settings
@@ -773,6 +791,137 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
                   )}
                 </div>
               ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ══════════════════ PROJECTS TAB ══════════════════ */}
+        <TabsContent value="projects">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-base font-semibold">Student Projects</h2>
+              <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>Assign specific projects to enrolled students and grade their submissions.</p>
+            </div>
+            <Dialog open={projOpen} onOpenChange={setProjOpen}>
+              <DialogContent className="max-w-md">
+                <DialogHeader><DialogTitle>Assign New Project</DialogTitle></DialogHeader>
+                <form onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!user) return;
+                  setAssigningProj(true);
+                  try {
+                    await assignProject({ courseId, teacherId: user.id, studentId: projForm.studentId, title: projForm.title, description: projForm.description });
+                    toast.success("Project assigned!");
+                    setProjOpen(false);
+                    setProjForm({ studentId: "", title: "", description: "" });
+                    setProjects(await getProjectsByCourse(courseId));
+                  } catch { toast.error("Failed to assign project"); }
+                  finally { setAssigningProj(false); }
+                }} className="space-y-4 mt-2">
+                  <div className="space-y-1.5">
+                    <Label>Assign to Student *</Label>
+                    <Select value={projForm.studentId} onValueChange={(v) => setProjForm({ ...projForm, studentId: v })} required>
+                      <SelectTrigger><SelectValue placeholder="Select student..." /></SelectTrigger>
+                      <SelectContent>
+                        {students.map((st) => <SelectItem key={st.id} value={st.id}>{st.name} ({st.email})</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Project Title *</Label>
+                    <Input placeholder="e.g. Build a Portfolio Website" value={projForm.title} onChange={(e) => setProjForm({ ...projForm, title: e.target.value })} required />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Description / Instructions *</Label>
+                    <Textarea placeholder="Explain what the student needs to do..." value={projForm.description} onChange={(e) => setProjForm({ ...projForm, description: e.target.value })} required rows={4} />
+                  </div>
+                  <Button type="submit" className="w-full" disabled={assigningProj || !projForm.studentId}>{assigningProj ? "Assigning..." : "Assign Project"}</Button>
+                </form>
+              </DialogContent>
+              <Button className="gap-2" onClick={() => setProjOpen(true)}><FolderPlus className="w-4 h-4" /> Assign Project</Button>
+            </Dialog>
+
+            {/* Grading Dialog */}
+            <Dialog open={gradingOpen} onOpenChange={setGradingOpen}>
+              <DialogContent className="max-w-md">
+                <DialogHeader><DialogTitle>Grade Project</DialogTitle></DialogHeader>
+                <form onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!gradingIds || !user) return;
+                  setGradingInProgress(true);
+                  try {
+                    await gradeProject(gradingIds, { grade: parseInt(gradingForm.grade), feedback: gradingForm.feedback });
+                    toast.success("Project graded successfully!");
+                    setGradingOpen(false);
+                    setProjects(await getProjectsByCourse(courseId));
+                  } catch { toast.error("Failed to submit grade"); }
+                  finally { setGradingInProgress(false); }
+                }} className="space-y-4 mt-2">
+                  <div className="space-y-1.5">
+                    <Label>Grade (0-100) *</Label>
+                    <Input type="number" min="0" max="100" placeholder="e.g. 95" value={gradingForm.grade} onChange={(e) => setGradingForm({ ...gradingForm, grade: e.target.value })} required />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Feedback (Optional)</Label>
+                    <Textarea placeholder="Great job on..." value={gradingForm.feedback} onChange={(e) => setGradingForm({ ...gradingForm, feedback: e.target.value })} rows={3} />
+                  </div>
+                  <Button type="submit" className="w-full" disabled={gradingInProgress}>{gradingInProgress ? "Saving..." : "Submit Grade"}</Button>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          {loading ? (
+            <div className="space-y-3">{[1, 2].map((i) => <div key={i} className="skeleton h-16 rounded-2xl" />)}</div>
+          ) : projects.length === 0 ? (
+            <Card>
+              <CardContent className="pt-6 text-center py-16">
+                <FolderOpen className="w-12 h-12 mx-auto mb-3" style={{ color: "var(--text-secondary)" }} />
+                <h3 className="font-semibold mb-2">No projects assigned</h3>
+                <p className="text-sm mb-5" style={{ color: "var(--text-secondary)" }}>Give your students practical work to complete.</p>
+                <Button onClick={() => setProjOpen(true)} className="gap-2"><FolderPlus className="w-4 h-4" /> Assign Project</Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {projects.map((proj: any) => {
+                const student = students.find((s) => s.id === proj.studentId);
+                return (
+                  <div key={proj.id} className="flex flex-col gap-3 p-4 rounded-2xl border" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h3 className="font-semibold">{proj.title}</h3>
+                        <p className="text-xs mt-1 max-w-2xl" style={{ color: "var(--text-secondary)" }}>{proj.description}</p>
+                        <p className="text-xs font-medium mt-3" style={{ color: "var(--accent)" }}>Assigned to: {student?.name || "Unknown Student"}</p>
+                      </div>
+                      <div className="flex-shrink-0">
+                        {proj.status === "assigned" && <Badge variant="secondary">Pending Submission</Badge>}
+                        {proj.status === "submitted" && <Badge variant="warning" className="bg-amber-100 text-amber-800 border-amber-200">Needs Grading</Badge>}
+                        {proj.status === "graded" && <Badge variant="success">Graded ({proj.grade}/100)</Badge>}
+                      </div>
+                    </div>
+                    
+                    {proj.status !== "assigned" && (
+                      <div className="mt-2 pt-3 border-t flex items-center justify-between" style={{ borderColor: "var(--border)" }}>
+                        <div className="flex items-center gap-2">
+                          <Link2 className="w-4 h-4" style={{ color: "var(--text-secondary)" }} />
+                          <a href={proj.submissionLink} target="_blank" rel="noopener noreferrer" className="text-sm hover:underline" style={{ color: "var(--info)" }}>
+                            View Submission
+                          </a>
+                        </div>
+                        {proj.status === "submitted" && (
+                          <Button size="sm" onClick={() => { setGradingIds(proj.id); setGradingForm({ grade: "", feedback: "" }); setGradingOpen(true); }}>
+                            Grade Now
+                          </Button>
+                        )}
+                        {proj.status === "graded" && proj.feedback && (
+                          <span className="text-sm italic" style={{ color: "var(--text-secondary)" }}>"{proj.feedback}"</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </TabsContent>

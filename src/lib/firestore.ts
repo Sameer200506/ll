@@ -233,3 +233,43 @@ export async function getQuizResultsByCourse(courseId: string) {
   const snap = await getDocs(q);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
+
+// ─── PROJECTS ─────────────────────────────────────────────────────────────────
+
+export async function assignProject(data: any) {
+  const ref = await addDoc(collection(db, "projects"), {
+    ...data,
+    status: "assigned",
+    createdAt: new Date().toISOString(),
+  });
+  return { id: ref.id };
+}
+
+export async function getProjectsByCourse(courseId: string) {
+  const q = query(collection(db, "projects"), where("courseId", "==", courseId));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+export async function getProjectsByStudent(studentId: string, courseId: string) {
+  const q = query(collection(db, "projects"), where("studentId", "==", studentId), where("courseId", "==", courseId));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+export async function submitProject(projectId: string, submissionLink: string) {
+  await updateDoc(doc(db, "projects", projectId), {
+    status: "submitted",
+    submissionLink,
+    submittedAt: new Date().toISOString(),
+  });
+}
+
+export async function gradeProject(projectId: string, data: { grade: number; feedback: string }) {
+  await updateDoc(doc(db, "projects", projectId), {
+    status: "graded",
+    grade: data.grade,
+    feedback: data.feedback,
+    gradedAt: new Date().toISOString(),
+  });
+}
