@@ -244,7 +244,7 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ courseI
                         <div className="pt-3 border-t mt-auto space-y-2" style={{ borderColor: "var(--border)" }}>
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-medium">Grade:</span>
-                            <Badge variant={proj.grade >= 70 ? "success" : proj.grade >= 40 ? "warning" : "destructive"}>{proj.grade} / 100</Badge>
+                            <Badge variant={proj.grade >= 70 ? "success" : proj.grade >= 40 ? "warning" : "danger"}>{proj.grade} / 100</Badge>
                           </div>
                           {proj.feedback && (
                             <div className="p-2 rounded-lg bg-black/5">

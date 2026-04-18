@@ -237,7 +237,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
   useEffect(() => { if (!courseId) return; loadAll(); }, [courseId]);
 
   const loadAll = async () => {
-    const [c, l, r, q] = await Promise.all([
+    const [c, l, r, q, projArr] = await Promise.all([
       getCourse(courseId),
       getLessonsByCourse(courseId),
       getResourcesByCourse(courseId),
