@@ -273,3 +273,28 @@ export async function gradeProject(projectId: string, data: { grade: number; fee
     gradedAt: new Date().toISOString(),
   });
 }
+
+// ─── ADMIN ────────────────────────────────────────────────────────────────────
+
+export async function getAllEnrollments() {
+  const snap = await getDocs(collection(db, "enrollments"));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+export async function getAllProjects() {
+  const snap = await getDocs(collection(db, "projects"));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+export async function getAllQuizResults() {
+  const snap = await getDocs(collection(db, "quizResults"));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+export async function deleteUser(uid: string) {
+  await deleteDoc(doc(db, "users", uid));
+}
+
+export async function deleteCourse(courseId: string) {
+  await deleteDoc(doc(db, "courses", courseId));
+}
