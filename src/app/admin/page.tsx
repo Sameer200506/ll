@@ -16,11 +16,12 @@ import {
   Users, BookOpen, ShoppingBag, BarChart3,
   Trash2, RefreshCw, Shield, GraduationCap,
   Search, LogOut, Activity, FileText, AlertTriangle,
+  IndianRupee, ChevronDown, ChevronUp, Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
-type Tab = "overview" | "students" | "teachers" | "courses" | "enrollments" | "transactions";
+type Tab = "overview" | "students" | "teachers" | "courses" | "enrollments" | "earnings" | "transactions";
 
 const ADMIN_PASSWORD = "admin123"; // simple client-side gate
 
@@ -133,8 +134,40 @@ export default function AdminPage() {
       keys.some((k) => String(item[k] ?? "").toLowerCase().includes(search.toLowerCase()))
     );
 
+  // ── Computed earnings data ──
+  const totalRevenue = enrollments.reduce((sum: number, e: any) => {
+    const course = courses.find((c: any) => c.id === e.courseId);
+    return sum + (course?.price || 0);
+  }, 0);
+
+  const teacherEarningsData = teachers.map((t: any) => {
+    const tCourses = courses.filter((c: any) => c.teacherId === t.id);
+    const tEnrollments = enrollments.filter((e: any) =>
+      tCourses.some((c: any) => c.id === e.courseId)
+    );
+    const tRevenue = tEnrollments.reduce((sum: number, e: any) => {
+      const course = courses.find((c: any) => c.id === e.courseId);
+      return sum + (course?.price || 0);
+    }, 0);
+    const uniqueStudents = new Set(tEnrollments.map((e: any) => e.userId)).size;
+    const paidEnrollments = tEnrollments.filter((e: any) => {
+      const course = courses.find((c: any) => c.id === e.courseId);
+      return (course?.price || 0) > 0;
+    });
+    return {
+      teacher: t,
+      courses: tCourses,
+      enrollments: tEnrollments,
+      revenue: tRevenue,
+      studentCount: uniqueStudents,
+      paymentCount: paidEnrollments.length,
+      paidEnrollments,
+    };
+  });
+
   const navItems: { id: Tab; label: string; icon: any; count?: number }[] = [
     { id: "overview", label: "Overview", icon: BarChart3 },
+    { id: "earnings", label: "Teacher Earnings", icon: IndianRupee, count: teachers.length },
     { id: "students", label: "Students", icon: GraduationCap, count: students.length },
     { id: "teachers", label: "Teachers", icon: Users, count: teachers.length },
     { id: "courses", label: "Courses", icon: BookOpen, count: courses.length },
@@ -143,12 +176,12 @@ export default function AdminPage() {
   ];
 
   const statCards = [
+    { label: "Total Revenue", value: `₹${totalRevenue.toLocaleString()}`, icon: IndianRupee, color: "#10b981" },
     { label: "Total Students", value: students.length, icon: GraduationCap, color: "var(--success)" },
     { label: "Total Teachers", value: teachers.length, icon: Users, color: "var(--accent)" },
     { label: "Total Courses", value: courses.length, icon: BookOpen, color: "var(--accent-2)" },
     { label: "Enrollments", value: enrollments.length, icon: ShoppingBag, color: "var(--warning)" },
-    { label: "Quiz Attempts", value: quizResults.length, icon: FileText, color: "var(--info)" },
-    { label: "Projects", value: projects.length, icon: Activity, color: "var(--danger)" },
+    { label: "Paid Payments", value: enrollments.filter((e: any) => { const c = courses.find((c2: any) => c2.id === e.courseId); return (c?.price || 0) > 0; }).length, icon: IndianRupee, color: "#8b5cf6" },
   ];
 
   // ── UI ───────────────────────────────────────────────────────────────────────
@@ -307,6 +340,16 @@ export default function AdminPage() {
                 </div>
               )}
 
+              {/* ── TEACHER EARNINGS ── */}
+              {tab === "earnings" && (
+                <TeacherEarningsTab
+                  data={filterBy(teacherEarningsData.map(d => ({...d, name: d.teacher.name, email: d.teacher.email})), ["name", "email"])}
+                  courses={courses}
+                  users={users}
+                  enrollments={enrollments}
+                />
+              )}
+
               {/* ── STUDENTS ── */}
               {tab === "students" && (
                 <UserTable
@@ -369,25 +412,35 @@ export default function AdminPage() {
                 </div>
               )}
 
-              {/* ── ENROLLMENTS ── */}
+              {/* ── ENROLLMENTS (enhanced) ── */}
               {tab === "enrollments" && (
                 <Card>
                   <CardContent className="pt-4 overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
                         <tr style={{ color: "var(--text-secondary)", borderBottom: "1px solid var(--border)" }}>
-                          <th className="text-left pb-3 pr-4">Enrollment ID</th>
-                          <th className="text-left pb-3 pr-4">Student ID</th>
-                          <th className="text-left pb-3 pr-4">Course ID</th>
-                          <th className="text-left pb-3">Enrolled On</th>
+                          <th className="text-left pb-3 pr-4">Student</th>
+                          <th className="text-left pb-3 pr-4">Course</th>
+                          <th className="text-left pb-3 pr-4">Teacher</th>
+                          <th className="text-left pb-3 pr-4">Amount</th>
+                          <th className="text-left pb-3">Date</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {filterBy(enrollments, ["id", "userId", "courseId"]).map((e: any) => (
+                        {filterBy(enrollments.map((e: any) => {
+                          const student = users.find((u: any) => u.id === e.userId);
+                          const course = courses.find((c: any) => c.id === e.courseId);
+                          return { ...e, studentName: student?.name || e.userId, courseName: course?.title || e.courseId, teacherName: course?.teacherName || "—", price: course?.price ?? 0 };
+                        }), ["studentName", "courseName", "teacherName"]).map((e: any) => (
                           <tr key={e.id} className="border-t" style={{ borderColor: "var(--border)" }}>
-                            <td className="py-2.5 pr-4 font-mono text-xs opacity-60">{e.id}</td>
-                            <td className="py-2.5 pr-4 font-mono text-xs">{e.userId}</td>
-                            <td className="py-2.5 pr-4 font-mono text-xs">{e.courseId}</td>
+                            <td className="py-2.5 pr-4 text-sm font-medium">{e.studentName}</td>
+                            <td className="py-2.5 pr-4 text-sm">{e.courseName}</td>
+                            <td className="py-2.5 pr-4 text-sm" style={{ color: "var(--text-secondary)" }}>{e.teacherName}</td>
+                            <td className="py-2.5 pr-4">
+                              <Badge variant={e.price > 0 ? "default" : "success"}>
+                                {e.price > 0 ? `₹${e.price}` : "Free"}
+                              </Badge>
+                            </td>
                             <td className="py-2.5 text-xs" style={{ color: "var(--text-secondary)" }}>
                               {e.purchasedAt ? format(new Date(e.purchasedAt), "MMM d, yyyy · h:mm a") : "—"}
                             </td>
@@ -395,7 +448,7 @@ export default function AdminPage() {
                         ))}
                       </tbody>
                     </table>
-                    {filterBy(enrollments, ["id", "userId", "courseId"]).length === 0 && (
+                    {enrollments.length === 0 && (
                       <EmptyState label="No enrollments found" />
                     )}
                   </CardContent>
@@ -539,6 +592,130 @@ function EmptyState({ label }: { label: string }) {
     <div className="flex flex-col items-center justify-center py-16 gap-3">
       <AlertTriangle className="w-8 h-8 opacity-30" style={{ color: "var(--text-secondary)" }} />
       <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{label}</p>
+    </div>
+  );
+}
+
+// ── Teacher Earnings Tab ──────────────────────────────────────────────────────
+
+function TeacherEarningsTab({ data, courses, users, enrollments }: { data: any[]; courses: any[]; users: any[]; enrollments: any[] }) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  return (
+    <div className="space-y-4">
+      {/* Summary cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
+        {data.sort((a, b) => b.revenue - a.revenue).map((d: any) => {
+          const isOpen = expandedId === d.teacher.id;
+          return (
+            <div key={d.teacher.id}>
+              <Card className="card-hover cursor-pointer" onClick={() => setExpandedId(isOpen ? null : d.teacher.id)}>
+                <CardContent className="pt-5 pb-4">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
+                      style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-2))" }}>
+                      {d.teacher.name?.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm truncate">{d.teacher.name}</p>
+                      <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{d.teacher.email}</p>
+                    </div>
+                    {isOpen ? <ChevronUp className="w-4 h-4 flex-shrink-0" style={{ color: "var(--text-secondary)" }} /> : <ChevronDown className="w-4 h-4 flex-shrink-0" style={{ color: "var(--text-secondary)" }} />}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3 rounded-xl" style={{ background: "rgba(16,185,129,0.08)" }}>
+                      <p className="text-xs mb-1" style={{ color: "var(--text-secondary)" }}>Total Earnings</p>
+                      <p className="text-lg font-bold" style={{ color: "#10b981" }}>₹{d.revenue.toLocaleString()}</p>
+                    </div>
+                    <div className="p-3 rounded-xl" style={{ background: "rgba(99,102,241,0.08)" }}>
+                      <p className="text-xs mb-1" style={{ color: "var(--text-secondary)" }}>Students</p>
+                      <p className="text-lg font-bold" style={{ color: "#6366f1" }}>{d.studentCount}</p>
+                    </div>
+                    <div className="p-3 rounded-xl" style={{ background: "rgba(245,158,11,0.08)" }}>
+                      <p className="text-xs mb-1" style={{ color: "var(--text-secondary)" }}>Paid Payments</p>
+                      <p className="text-lg font-bold" style={{ color: "#f59e0b" }}>{d.paymentCount}</p>
+                    </div>
+                    <div className="p-3 rounded-xl" style={{ background: "rgba(139,92,246,0.08)" }}>
+                      <p className="text-xs mb-1" style={{ color: "var(--text-secondary)" }}>Courses</p>
+                      <p className="text-lg font-bold" style={{ color: "#8b5cf6" }}>{d.courses.length}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Expanded detail */}
+              {isOpen && (
+                <div className="mt-2 animate-fade-in">
+                  {/* Per-course breakdown */}
+                  <Card className="mb-2">
+                    <CardContent className="pt-4">
+                      <p className="text-sm font-semibold mb-3" style={{ color: "var(--text-primary)" }}>Course-wise Breakdown</p>
+                      <div className="space-y-2">
+                        {d.courses.map((c: any) => {
+                          const cEnrolls = d.enrollments.filter((e: any) => e.courseId === c.id);
+                          const cRevenue = cEnrolls.length * (c.price || 0);
+                          return (
+                            <div key={c.id} className="flex items-center justify-between p-3 rounded-xl" style={{ background: "var(--surface-2)" }}>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium truncate">{c.title}</p>
+                                <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                                  {cEnrolls.length} student{cEnrolls.length !== 1 ? "s" : ""} · {c.price > 0 ? `₹${c.price}/student` : "Free"}
+                                </p>
+                              </div>
+                              <span className="text-sm font-bold ml-3" style={{ color: cRevenue > 0 ? "#10b981" : "var(--text-secondary)" }}>
+                                ₹{cRevenue.toLocaleString()}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Students who purchased */}
+                  <Card>
+                    <CardContent className="pt-4 overflow-x-auto">
+                      <p className="text-sm font-semibold mb-3">Students &amp; Payments</p>
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr style={{ color: "var(--text-secondary)", borderBottom: "1px solid var(--border)" }}>
+                            <th className="text-left pb-2 pr-3">Student</th>
+                            <th className="text-left pb-2 pr-3">Course</th>
+                            <th className="text-left pb-2 pr-3">Amount</th>
+                            <th className="text-left pb-2">Date</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {d.enrollments.map((e: any) => {
+                            const student = users.find((u: any) => u.id === e.userId);
+                            const course = courses.find((c: any) => c.id === e.courseId);
+                            return (
+                              <tr key={e.id} className="border-t" style={{ borderColor: "var(--border)" }}>
+                                <td className="py-2 pr-3 text-xs font-medium">{student?.name || e.userId}</td>
+                                <td className="py-2 pr-3 text-xs">{course?.title || e.courseId}</td>
+                                <td className="py-2 pr-3">
+                                  <Badge variant={(course?.price || 0) > 0 ? "default" : "success"}>
+                                    {(course?.price || 0) > 0 ? `₹${course.price}` : "Free"}
+                                  </Badge>
+                                </td>
+                                <td className="py-2 text-xs" style={{ color: "var(--text-secondary)" }}>
+                                  {e.purchasedAt ? format(new Date(e.purchasedAt), "MMM d, yyyy") : "—"}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                      {d.enrollments.length === 0 && <p className="text-xs py-4 text-center" style={{ color: "var(--text-secondary)" }}>No enrollments yet</p>}
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {data.length === 0 && <EmptyState label="No teachers found" />}
     </div>
   );
 }
