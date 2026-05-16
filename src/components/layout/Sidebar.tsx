@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import {
   BookOpen, Calendar, LayoutDashboard, GraduationCap,
   Users, PlayCircle, ClipboardList, Video, ShoppingBag,
-  LogOut, Settings, Zap, Trophy
+  LogOut, Settings, Zap, Trophy, FolderOpen
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -17,6 +17,7 @@ const studentLinks = [
   { href: "/dashboard/student/browse", label: "Browse & Buy", icon: ShoppingBag },
   { href: "/dashboard/student/calendar", label: "Calendar", icon: Calendar },
   { href: "/dashboard/student/tests", label: "Tests & Quizzes", icon: ClipboardList },
+  { href: "/dashboard/student/projects", label: "Projects", icon: FolderOpen },
 ];
 
 const teacherLinks = [
@@ -24,7 +25,9 @@ const teacherLinks = [
   { href: "/dashboard/teacher/courses", label: "My Courses", icon: BookOpen },
   { href: "/dashboard/teacher/students", label: "Students", icon: Users },
   { href: "/dashboard/teacher/schedule", label: "Schedule", icon: Calendar },
+  { href: "/dashboard/teacher/calendar", label: "Calendar", icon: Calendar },
   { href: "/dashboard/teacher/quizzes", label: "Quiz Builder", icon: ClipboardList },
+  { href: "/dashboard/teacher/projects", label: "Projects", icon: FolderOpen },
 ];
 
 export function Sidebar() {

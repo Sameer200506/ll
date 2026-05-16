@@ -257,6 +257,12 @@ export async function getProjectsByStudent(studentId: string, courseId: string) 
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
+export async function getAllProjectsByStudent(studentId: string) {
+  const q = query(collection(db, "projects"), where("studentId", "==", studentId));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
 export async function submitProject(projectId: string, submissionLink: string) {
   await updateDoc(doc(db, "projects", projectId), {
     status: "submitted",
