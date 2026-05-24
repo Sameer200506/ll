@@ -75,21 +75,25 @@ export default function CoursesCatalogPage() {
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-fade-in">
             {filtered.map((course: any) => (
               <Card key={course.id} className="card-hover flex flex-col pt-0 h-full">
-                <div className="h-44 rounded-t-2xl overflow-hidden flex items-center justify-center relative flex-shrink-0"
-                  style={{ background: "linear-gradient(135deg, var(--surface-2), rgba(37,99,235,0.15))" }}>
-                  {course.thumbnailUrl ? (
-                    <img src={course.thumbnailUrl} alt={course.title} className="w-full h-full object-cover" />
-                  ) : (
-                    <PlayCircle className="w-14 h-14 opacity-30" style={{ color: "var(--accent)" }} />
-                  )}
-                  <div className="absolute top-3 right-3">
-                    <Badge variant={course.price === 0 ? "success" : "default"}>
-                      {course.price === 0 ? "Free" : `₹${course.price}`}
-                    </Badge>
+                <Link href={`/courses/${course.id}`}>
+                  <div className="h-44 rounded-t-2xl overflow-hidden flex items-center justify-center relative flex-shrink-0 cursor-pointer"
+                    style={{ background: "linear-gradient(135deg, var(--surface-2), rgba(37,99,235,0.15))" }}>
+                    {course.thumbnailUrl ? (
+                      <img src={course.thumbnailUrl} alt={course.title} className="w-full h-full object-cover transition-transform duration-300 hover:scale-105" />
+                    ) : (
+                      <PlayCircle className="w-14 h-14 opacity-30" style={{ color: "var(--accent)" }} />
+                    )}
+                    <div className="absolute top-3 right-3">
+                      <Badge variant={course.price === 0 ? "success" : "default"}>
+                        {course.price === 0 ? "Free" : `₹${course.price}`}
+                      </Badge>
+                    </div>
                   </div>
-                </div>
+                </Link>
                 <CardContent className="pt-5 flex-1 flex flex-col">
-                  <h3 className="font-semibold text-base mb-1.5 line-clamp-2">{course.title}</h3>
+                  <Link href={`/courses/${course.id}`}>
+                    <h3 className="font-semibold text-base mb-1.5 line-clamp-2 hover:text-orange-500 transition-colors cursor-pointer">{course.title}</h3>
+                  </Link>
                   <p className="text-sm mb-2" style={{ color: "var(--text-secondary)" }}>by <span className="font-medium text-white">{course.teacherName}</span></p>
                   <p className="text-sm line-clamp-2 mb-6 flex-1" style={{ color: "var(--text-secondary)" }}>{course.description}</p>
                   <div className="flex items-center justify-between gap-2 mt-auto border-t pt-4" style={{ borderColor: "var(--border)" }}>
@@ -97,9 +101,9 @@ export default function CoursesCatalogPage() {
                       <Star className="w-4 h-4" style={{ color: "var(--warning)" }} />
                       <span className="text-sm font-semibold">4.8</span>
                     </div>
-                    <Link href={`/login?redirect=/courses`}>
-                      <Button size="default" className="gap-2">
-                        Sign in to Enroll
+                    <Link href={`/courses/${course.id}`}>
+                      <Button size="sm" variant="outline" className="rounded-xl font-bold cursor-pointer">
+                        View Details
                       </Button>
                     </Link>
                   </div>

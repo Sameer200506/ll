@@ -291,6 +291,7 @@ export default function LandingPage() {
 
         {/* Desktop nav links */}
         <div className="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-600">
+          <Link href="/courses" className="hover:text-orange-500 transition-colors">Courses</Link>
           <button onClick={() => handleScrollToSection("about")} className="hover:text-orange-500 transition-colors cursor-pointer">About</button>
           <button onClick={() => handleScrollToSection("highlights")} className="hover:text-orange-500 transition-colors cursor-pointer">Highlights</button>
           <button onClick={() => handleScrollToSection("pricing")} className="hover:text-orange-500 transition-colors cursor-pointer">Pricing Plans</button>
@@ -678,22 +679,26 @@ export default function LandingPage() {
                 <motion.div key={course.id} variants={fadeInUp}>
                   <Card className="flex flex-col overflow-hidden bg-white border border-slate-100 rounded-3xl shadow-sm card-hover h-full">
                     {/* Thumbnail / Header */}
-                    <div className="h-48 rounded-t-2xl overflow-hidden flex items-center justify-center relative bg-orange-50 border-b border-orange-100">
-                      {course.thumbnailUrl ? (
-                        <img src={course.thumbnailUrl} alt={course.title} className="w-full h-full object-cover" />
-                      ) : (
-                        <PlayCircle className="w-16 h-16 opacity-30 text-orange-500" />
-                      )}
-                      <div className="absolute top-4 right-4">
-                        <Badge className="bg-orange-500 hover:bg-orange-600 text-white font-bold px-3 py-1 text-xs shadow-md">
-                          {course.price === 0 ? "Free Demo" : `₹${course.price}`}
-                        </Badge>
+                    <Link href={`/courses/${course.id}`}>
+                      <div className="h-48 rounded-t-2xl overflow-hidden flex items-center justify-center relative bg-orange-50 border-b border-orange-100 cursor-pointer">
+                        {course.thumbnailUrl ? (
+                          <img src={course.thumbnailUrl} alt={course.title} className="w-full h-full object-cover transition-transform duration-300 hover:scale-105" />
+                        ) : (
+                          <PlayCircle className="w-16 h-16 opacity-30 text-orange-500" />
+                        )}
+                        <div className="absolute top-4 right-4">
+                          <Badge className="bg-orange-500 hover:bg-orange-600 text-white font-bold px-3 py-1 text-xs shadow-md">
+                            {course.price === 0 ? "Free Demo" : `₹${course.price}`}
+                          </Badge>
+                        </div>
                       </div>
-                    </div>
+                    </Link>
 
                     {/* Content */}
                     <CardContent className="p-6 flex-1 flex flex-col">
-                      <h3 className="font-bold text-lg text-slate-900 mb-1.5 line-clamp-2">{course.title}</h3>
+                      <Link href={`/courses/${course.id}`}>
+                        <h3 className="font-bold text-lg text-slate-900 mb-1.5 line-clamp-2 hover:text-orange-500 transition-colors cursor-pointer">{course.title}</h3>
+                      </Link>
                       <p className="text-sm mb-3 text-slate-500">by <span className="font-semibold text-slate-800">{course.teacherName}</span></p>
                       <p className="text-sm text-slate-600 line-clamp-3 mb-6 flex-1">{course.description}</p>
                       
