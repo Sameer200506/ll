@@ -11,7 +11,9 @@ import {
   deleteCourse,
   getAllLeads,
   deleteLead,
-  markLeadRead
+  markLeadRead,
+  approveEnrollment,
+  declineEnrollment
 } from "@/lib/firestore";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -136,23 +138,53 @@ export default function AdminPage() {
     }
   };
 
+  const handleApproveEnrollment = async (userId: string, courseId: string) => {
+    try {
+      await approveEnrollment(userId, courseId);
+      setEnrollments((prev) =>
+        prev.map((e) =>
+          e.userId === userId && e.courseId === courseId
+            ? { ...e, status: "approved", approvedAt: new Date().toISOString() }
+            : e
+        )
+      );
+      toast.success("Enrollment approved! Student can now access the course.");
+    } catch {
+      toast.error("Failed to approve enrollment.");
+    }
+  };
+
+  const handleDeclineEnrollment = async (userId: string, courseId: string) => {
+    if (!confirm("Are you sure you want to decline this enrollment? The request will be deleted.")) return;
+    try {
+      await declineEnrollment(userId, courseId);
+      setEnrollments((prev) => prev.filter((e) => !(e.userId === userId && e.courseId === courseId)));
+      toast.success("Enrollment request declined.");
+    } catch {
+      toast.error("Failed to decline enrollment.");
+    }
+  };
+
   const filterBy = (arr: any[], keys: string[]) =>
     arr.filter((item) =>
       keys.some((k) => String(item[k] ?? "").toLowerCase().includes(search.toLowerCase()))
     );
 
-  const totalRevenue = enrollments.reduce((sum: number, e: any) => {
+  const pendingEnrollments = enrollments.filter((e: any) => e.status === "pending");
+  const approvedEnrollments = enrollments.filter((e: any) => e.status !== "pending");
+
+  const totalRevenue = approvedEnrollments.reduce((sum: number, e: any) => {
     const course = courses.find((c: any) => c.id === e.courseId);
     return sum + (course?.price || 0);
   }, 0);
 
-  const navItems: { id: Tab; label: string; icon: any; count?: number; highlight?: boolean }[] = [
+  const navItems: { id: Tab; label: string; icon: any; count?: number | string; highlight?: boolean }[] = [
     { id: "overview", label: "Overview", icon: BarChart3 },
     { id: "leads", label: "Leads / Messages", icon: MessageSquare, count: unreadLeadsCount, highlight: unreadLeadsCount > 0 },
     { id: "students", label: "Students", icon: GraduationCap, count: students.length },
     { id: "teachers", label: "Teachers", icon: Users, count: teachers.length },
     { id: "courses", label: "Courses", icon: BookOpen, count: courses.length },
-    { id: "enrollments", label: "Enrollments", icon: ShoppingBag, count: enrollments.length },
+    { id: "enrollments", label: "Enrollments", icon: ShoppingBag, count: pendingEnrollments.length > 0 ? `Req: ${pendingEnrollments.length}` : approvedEnrollments.length, highlight: pendingEnrollments.length > 0 },
     { id: "payments", label: "Payments Logs", icon: IndianRupee },
     { id: "cms", label: "CMS & Reviews", icon: Sparkles },
   ];
@@ -163,7 +195,7 @@ export default function AdminPage() {
     { label: "Total Teachers", value: teachers.length, icon: Users, color: "var(--accent)" },
     { label: "Total Courses", value: courses.length, icon: BookOpen, color: "#a855f7" },
     { label: "Leads / Inquiries", value: leads.length, icon: MessageSquare, color: "#eab308" },
-    { label: "Paid Enrollment", value: enrollments.filter((e: any) => { const c = courses.find((c2: any) => c2.id === e.courseId); return (c?.price || 0) > 0; }).length, icon: ShoppingBag, color: "#f43f5e" },
+    { label: "Paid Enrollment", value: approvedEnrollments.filter((e: any) => { const c = courses.find((c2: any) => c2.id === e.courseId); return (c?.price || 0) > 0; }).length, icon: ShoppingBag, color: "#f43f5e" },
   ];
 
   if (!authed) {
@@ -543,43 +575,132 @@ export default function AdminPage() {
 
                   {/* ENROLLMENTS TAB */}
                   {tab === "enrollments" && (
-                    <motion.div variants={fadeInUp} className="space-y-4">
-                      <Card className="border-slate-100 overflow-hidden bg-white text-left">
-                        <CardContent className="p-4 overflow-x-auto">
-                          <table className="w-full text-sm">
-                            <thead>
-                              <tr className="text-slate-400 font-bold border-b border-slate-150">
-                                <th className="pb-3 text-xs uppercase font-bold">Student</th>
-                                <th className="pb-3 text-xs uppercase font-bold">Course</th>
-                                <th className="pb-3 text-xs uppercase font-bold">Instructor</th>
-                                <th className="pb-3 text-xs uppercase font-bold">Course Fee</th>
-                                <th className="pb-3 text-xs uppercase font-bold">Enrollment Date</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {filterBy(enrollments.map((e: any) => {
-                                const st = users.find((u) => u.id === e.userId);
-                                const crs = courses.find((c) => c.id === e.courseId);
-                                return { ...e, studentName: st?.name || "ID: " + e.userId, courseName: crs?.title || "ID: " + e.courseId, teacherName: crs?.teacherName || "—", price: crs?.price ?? 0 };
-                              }), ["studentName", "courseName", "teacherName"]).map((e: any) => (
-                                <tr key={e.id} className="border-t border-slate-50 font-medium text-slate-700">
-                                  <td className="py-3 text-sm font-bold text-slate-900">{e.studentName}</td>
-                                  <td className="py-3 text-sm">{e.courseName}</td>
-                                  <td className="py-3 text-sm text-slate-400">{e.teacherName}</td>
-                                  <td className="py-3">
-                                    <Badge className={e.price > 0 ? "bg-slate-100 text-slate-600" : "bg-emerald-100 text-emerald-600 hover:bg-emerald-100"}>
-                                      {e.price > 0 ? `₹${e.price}` : "Free"}
-                                    </Badge>
-                                  </td>
-                                  <td className="py-3 text-xs text-slate-400 font-semibold">
-                                    {e.purchasedAt ? format(new Date(e.purchasedAt), "MMM d, yyyy") : "—"}
-                                  </td>
+                    <motion.div variants={fadeInUp} className="space-y-8">
+                      {/* Section 1: Pending Enrollment Requests */}
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h2 className="text-lg font-bold text-slate-900">Pending Enrollment Requests</h2>
+                          <Badge className="bg-orange-100 text-orange-600 border border-orange-200/50 text-[10px] font-black uppercase tracking-wider">
+                            {pendingEnrollments.length} Awaiting Verification
+                          </Badge>
+                        </div>
+
+                        {pendingEnrollments.length > 0 ? (
+                          <div className="grid gap-4">
+                            {filterBy(pendingEnrollments.map((e: any) => {
+                              const st = users.find((u) => u.id === e.userId);
+                              const crs = courses.find((c) => c.id === e.courseId);
+                              return {
+                                ...e,
+                                studentName: st?.name || "Unknown Student",
+                                studentEmail: st?.email || "—",
+                                courseName: crs?.title || "Unknown Course",
+                                teacherName: crs?.teacherName || "—",
+                                price: crs?.price ?? 0
+                              };
+                            }), ["studentName", "studentEmail", "courseName", "transactionId"]).map((e: any) => (
+                              <Card key={e.id} className="border-slate-100 relative overflow-hidden text-left bg-white border-l-4 border-l-orange-500 shadow-sm animate-fade-in">
+                                <CardContent className="p-6">
+                                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                    <div className="space-y-3 flex-1 min-w-0">
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <h3 className="font-bold text-slate-950 text-base">{e.studentName}</h3>
+                                        <span className="text-xs text-slate-400 font-semibold">({e.studentEmail})</span>
+                                        <Badge className="bg-orange-50 text-orange-600 border border-orange-200/40 text-[9px] font-bold uppercase ml-auto md:ml-0">
+                                          ₹{e.price} Course Fee
+                                        </Badge>
+                                      </div>
+
+                                      <div className="grid sm:grid-cols-2 gap-x-6 gap-y-1.5 text-xs text-slate-500 font-semibold">
+                                        <p className="truncate"><span className="text-slate-400 font-bold uppercase tracking-wider text-[10px] block">Course Requested</span> {e.courseName}</p>
+                                        <p className="truncate"><span className="text-slate-400 font-bold uppercase tracking-wider text-[10px] block">Student UID</span> <span className="font-mono bg-slate-50 border border-slate-100 rounded px-1">{e.userId}</span></p>
+                                      </div>
+
+                                      <div className="flex flex-wrap items-center gap-4 pt-1">
+                                        <div className="px-3 py-1.5 bg-slate-50 border border-slate-150 rounded-xl text-xs font-mono font-bold text-slate-700 flex items-center gap-2 select-all select-text">
+                                          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-sans">Transaction ID:</span>
+                                          {e.transactionId || "N/A"}
+                                        </div>
+                                        <span className="text-xs text-slate-400 font-semibold flex items-center gap-1">
+                                          <Clock className="w-3.5 h-3.5 text-slate-450" />
+                                          {e.purchasedAt ? format(new Date(e.purchasedAt), "MMM d, yyyy · h:mm a") : "—"}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 flex-shrink-0 md:self-center">
+                                      <Button
+                                        size="sm"
+                                        onClick={() => handleApproveEnrollment(e.userId, e.courseId)}
+                                        className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-4 rounded-xl flex items-center gap-1.5 shadow-sm"
+                                      >
+                                        <CheckCircle2 className="w-4 h-4" /> Approve Course
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleDeclineEnrollment(e.userId, e.courseId)}
+                                        className="border-red-200 hover:bg-red-50 text-red-500 font-bold py-2 px-3 rounded-xl flex items-center justify-center cursor-pointer"
+                                      >
+                                        Decline
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-12 border rounded-3xl bg-white border-slate-100">
+                            <CheckCircle2 className="w-10 h-10 text-emerald-555 mx-auto mb-2" />
+                            <p className="text-sm font-semibold text-slate-400">All payment verifications cleared!</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Section 2: Active Enrollments */}
+                      <div className="space-y-4 pt-4">
+                        <h2 className="text-lg font-bold text-slate-900 text-left">Active Enrollments Ledger</h2>
+                        <Card className="border-slate-100 overflow-hidden bg-white text-left">
+                          <CardContent className="p-4 overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="text-slate-400 font-bold border-b border-slate-150">
+                                  <th className="pb-3 text-xs uppercase font-bold">Student</th>
+                                  <th className="pb-3 text-xs uppercase font-bold">Course</th>
+                                  <th className="pb-3 text-xs uppercase font-bold">Instructor</th>
+                                  <th className="pb-3 text-xs uppercase font-bold">Course Fee</th>
+                                  <th className="pb-3 text-xs uppercase font-bold">Enrollment Date</th>
                                 </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </CardContent>
-                      </Card>
+                              </thead>
+                              <tbody>
+                                {filterBy(approvedEnrollments.map((e: any) => {
+                                  const st = users.find((u) => u.id === e.userId);
+                                  const crs = courses.find((c) => c.id === e.courseId);
+                                  return { ...e, studentName: st?.name || "ID: " + e.userId, courseName: crs?.title || "ID: " + e.courseId, teacherName: crs?.teacherName || "—", price: crs?.price ?? 0 };
+                                }), ["studentName", "courseName", "teacherName"]).map((e: any) => (
+                                  <tr key={e.id} className="border-t border-slate-50 font-medium text-slate-700">
+                                    <td className="py-3 text-sm font-bold text-slate-900">{e.studentName}</td>
+                                    <td className="py-3 text-sm">{e.courseName}</td>
+                                    <td className="py-3 text-sm text-slate-400">{e.teacherName}</td>
+                                    <td className="py-3">
+                                      <Badge className={e.price > 0 ? "bg-slate-100 text-slate-600" : "bg-emerald-100 text-emerald-600 hover:bg-emerald-100 font-semibold"}>
+                                        {e.price > 0 ? `₹${e.price}` : "Free"}
+                                      </Badge>
+                                    </td>
+                                    <td className="py-3 text-xs text-slate-400 font-semibold">
+                                      {e.purchasedAt ? format(new Date(e.purchasedAt), "MMM d, yyyy") : "—"}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                            {approvedEnrollments.length === 0 && (
+                              <p className="text-xs text-slate-400 font-bold text-center py-8">No active enrollments recorded</p>
+                            )}
+                          </CardContent>
+                        </Card>
+                      </div>
                     </motion.div>
                   )}
 
@@ -594,7 +715,7 @@ export default function AdminPage() {
                         <div className="bg-indigo-50 border border-indigo-150 p-6 rounded-3xl">
                           <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Paid Student Registrations</p>
                           <h4 className="text-3xl font-black text-indigo-600 mt-1">
-                            {enrollments.filter((e: any) => { const c = courses.find((c2: any) => c2.id === e.courseId); return (c?.price || 0) > 0; }).length} Purchases
+                            {approvedEnrollments.filter((e: any) => { const c = courses.find((c2: any) => c2.id === e.courseId); return (c?.price || 0) > 0; }).length} Purchases
                           </h4>
                         </div>
                       </div>
@@ -613,12 +734,12 @@ export default function AdminPage() {
                               </tr>
                             </thead>
                             <tbody>
-                              {enrollments.map((e: any) => {
+                              {approvedEnrollments.map((e: any) => {
                                 const st = users.find((u) => u.id === e.userId);
                                 const crs = courses.find((c) => c.id === e.courseId);
                                 return { ...e, studentName: st?.name || e.userId, courseName: crs?.title || e.courseId, price: crs?.price ?? 0 };
                               }).filter(e => e.price > 0).map((e: any) => (
-                                <tr key={e.id} className="border-t border-slate-50 font-medium text-slate-600">
+                                <tr key={e.id} className="border-t border-slate-50 font-medium text-slate-650">
                                   <td className="py-3 font-mono text-xs text-orange-500">{e.id}</td>
                                   <td className="py-3 text-sm font-bold text-slate-900">{e.studentName}</td>
                                   <td className="py-3 text-sm">{e.courseName}</td>
@@ -628,7 +749,7 @@ export default function AdminPage() {
                               ))}
                             </tbody>
                           </table>
-                          {enrollments.filter((e: any) => { const c = courses.find((c2: any) => c2.id === e.courseId); return (c?.price || 0) > 0; }).length === 0 && (
+                          {approvedEnrollments.filter((e: any) => { const c = courses.find((c2: any) => c2.id === e.courseId); return (c?.price || 0) > 0; }).length === 0 && (
                             <p className="text-xs text-slate-400 font-bold text-center py-8">No paid transactions recorded</p>
                           )}
                         </CardContent>

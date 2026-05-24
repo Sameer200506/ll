@@ -115,12 +115,19 @@ export async function deleteResource(resourceId: string) {
 
 // ─── ENROLLMENTS ──────────────────────────────────────────────────────────────
 
-export async function enrollUser(userId: string, courseId: string) {
+export async function enrollUser(
+  userId: string,
+  courseId: string,
+  status: string = "approved",
+  transactionId?: string
+) {
   const id = `${userId}_${courseId}`;
   await setDoc(doc(db, "enrollments", id), {
     userId,
     courseId,
     purchasedAt: new Date().toISOString(),
+    status,
+    transactionId: transactionId || null,
   });
 }
 
@@ -138,7 +145,23 @@ export async function getEnrollmentsByCourse(courseId: string) {
 
 export async function isEnrolled(userId: string, courseId: string) {
   const snap = await getDoc(doc(db, "enrollments", `${userId}_${courseId}`));
-  return snap.exists();
+  if (!snap.exists()) return false;
+  const data = snap.data();
+  if (data && data.status === "pending") return false;
+  return true;
+}
+
+export async function approveEnrollment(userId: string, courseId: string) {
+  const id = `${userId}_${courseId}`;
+  await updateDoc(doc(db, "enrollments", id), {
+    status: "approved",
+    approvedAt: new Date().toISOString(),
+  });
+}
+
+export async function declineEnrollment(userId: string, courseId: string) {
+  const id = `${userId}_${courseId}`;
+  await deleteDoc(doc(db, "enrollments", id));
 }
 
 // ─── PROGRESS ─────────────────────────────────────────────────────────────────

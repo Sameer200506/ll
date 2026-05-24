@@ -20,8 +20,9 @@ export default function MyCoursesPage() {
     if (!user) return;
     (async () => {
       const enr = await getEnrollmentsByUser(user.id);
+      const approvedEnrollments = enr.filter((e: any) => e.status !== "pending");
       const allCourses = await getAllCourses();
-      const enrolled = allCourses.filter((c: any) => enr.some((e: any) => e.courseId === c.id));
+      const enrolled = allCourses.filter((c: any) => approvedEnrollments.some((e: any) => e.courseId === c.id));
       setCourses(enrolled);
 
       // Load progress for each course

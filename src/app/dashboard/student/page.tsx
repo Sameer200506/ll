@@ -72,7 +72,7 @@ export default function StudentOverview() {
     })();
   }, [user]);
 
-  const myCourseIds = enrollments.map((e: any) => e.courseId);
+  const myCourseIds = enrollments.filter((e: any) => e.status !== "pending").map((e: any) => e.courseId);
   const myCourses = courses.filter((c: any) => myCourseIds.includes(c.id));
   const upcomingClasses = schedules
     .filter((s: any) => new Date(s.datetime) > new Date())
