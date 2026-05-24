@@ -27,7 +27,7 @@ export default function CoursesCatalogPage() {
     <div className="min-h-screen flex flex-col" style={{ background: "var(--background)" }}>
       {/* Navbar */}
       <nav className="border-b px-6 py-4 flex items-center justify-between sticky top-0 z-50"
-        style={{ background: "rgba(248,249,255,0.92)", backdropFilter: "blur(12px)", borderColor: "var(--border)" }}>
+        style={{ background: "rgba(255, 255, 255, 0.85)", backdropFilter: "blur(12px)", borderColor: "var(--border)" }}>
         <Link href="/" className="flex items-center gap-3 transition-opacity hover:opacity-80">
           <img src="/assets/mainlogo.png" alt="CodeKrafters Logo" className="w-8 h-8 object-contain rounded-lg" />
           <span className="text-xl font-bold gradient-text hidden sm:inline-block">CodeKrafters.in</span>

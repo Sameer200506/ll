@@ -304,3 +304,81 @@ export async function deleteUser(uid: string) {
 export async function deleteCourse(courseId: string) {
   await deleteDoc(doc(db, "courses", courseId));
 }
+
+// ─── LEADS / MESSAGES ─────────────────────────────────────────────────────────
+
+export async function createLead(data: any) {
+  const ref = await addDoc(collection(db, "leads"), {
+    ...data,
+    status: "unread",
+    createdAt: new Date().toISOString(),
+  });
+  return { id: ref.id };
+}
+
+export async function getAllLeads() {
+  const snap = await getDocs(collection(db, "leads"));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+export async function deleteLead(leadId: string) {
+  await deleteDoc(doc(db, "leads", leadId));
+}
+
+export async function markLeadRead(leadId: string, read: boolean) {
+  await updateDoc(doc(db, "leads", leadId), { status: read ? "read" : "unread" });
+}
+
+// ─── ATTENDANCE ───────────────────────────────────────────────────────────────
+
+export async function recordAttendance(data: any) {
+  const ref = await addDoc(collection(db, "attendance"), {
+    ...data,
+    createdAt: new Date().toISOString(),
+  });
+  return { id: ref.id };
+}
+
+export async function getAttendanceByCourse(courseId: string) {
+  const q = query(collection(db, "attendance"), where("courseId", "==", courseId));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+// ─── ASSIGNMENTS ──────────────────────────────────────────────────────────────
+
+export async function createAssignment(data: any) {
+  const ref = await addDoc(collection(db, "assignments"), {
+    ...data,
+    createdAt: new Date().toISOString(),
+  });
+  return { id: ref.id };
+}
+
+export async function getAssignmentsByCourse(courseId: string) {
+  const q = query(collection(db, "assignments"), where("courseId", "==", courseId));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+// ─── NOTIFICATIONS ────────────────────────────────────────────────────────────
+
+export async function createNotification(data: any) {
+  const ref = await addDoc(collection(db, "notifications"), {
+    ...data,
+    read: false,
+    createdAt: new Date().toISOString(),
+  });
+  return { id: ref.id };
+}
+
+export async function getNotificationsByUser(userId: string) {
+  const q = query(collection(db, "notifications"), where("userId", "==", userId));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+export async function markNotificationRead(notificationId: string) {
+  await updateDoc(doc(db, "notifications", notificationId), { read: true });
+}
+

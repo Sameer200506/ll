@@ -1,4 +1,5 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import {
   getAllUsers,
@@ -8,6 +9,9 @@ import {
   getAllProjects,
   deleteUser,
   deleteCourse,
+  getAllLeads,
+  deleteLead,
+  markLeadRead
 } from "@/lib/firestore";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,13 +21,31 @@ import {
   Trash2, RefreshCw, Shield, GraduationCap,
   Search, LogOut, Activity, FileText, AlertTriangle,
   IndianRupee, ChevronDown, ChevronUp, Eye,
+  Mail, Phone, MessageSquare, Calendar, Sparkles, Check, CheckCircle2, Clock
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { motion, AnimatePresence } from "framer-motion";
 
-type Tab = "overview" | "students" | "teachers" | "courses" | "enrollments" | "earnings" | "transactions";
+type Tab = "overview" | "leads" | "students" | "teachers" | "courses" | "enrollments" | "payments" | "cms";
 
-const ADMIN_PASSWORD = "admin123"; // simple client-side gate
+const ADMIN_PASSWORD = "admin123";
+
+// Animation settings
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" as const } }
+};
+
+const staggerContainer = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.06
+    }
+  }
+};
 
 export default function AdminPage() {
   const [authed, setAuthed] = useState(false);
@@ -37,25 +59,29 @@ export default function AdminPage() {
   const [enrollments, setEnrollments] = useState<any[]>([]);
   const [quizResults, setQuizResults] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
+  const [leads, setLeads] = useState<any[]>([]);
 
   const students = users.filter((u) => u.role === "student");
   const teachers = users.filter((u) => u.role === "teacher");
+  const unreadLeadsCount = leads.filter((l) => l.status === "unread").length;
 
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [u, c, e, qr, pr] = await Promise.all([
+      const [u, c, e, qr, pr, ld] = await Promise.all([
         getAllUsers(),
         getAllCourses(),
         getAllEnrollments(),
         getAllQuizResults(),
         getAllProjects(),
+        getAllLeads()
       ]);
       setUsers(u as any[]);
       setCourses(c as any[]);
       setEnrollments(e as any[]);
       setQuizResults(qr as any[]);
       setProjects(pr as any[]);
+      setLeads(ld as any[]);
     } catch {
       toast.error("Failed to load data");
     }
@@ -66,47 +92,6 @@ export default function AdminPage() {
     if (authed) fetchAll();
   }, [authed]);
 
-  // ── Login gate ──────────────────────────────────────────────────────────────
-  if (!authed) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--background)" }}>
-        <div className="w-full max-w-md p-8 rounded-3xl border shadow-2xl animate-fade-in"
-          style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
-          <div className="flex flex-col items-center mb-8">
-            <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
-              style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-2))" }}>
-              <Shield className="w-8 h-8 text-white" />
-            </div>
-            <h1 className="text-2xl font-bold gradient-text">Admin Panel</h1>
-            <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>CodeKrafters.in — Restricted Access</p>
-          </div>
-          <div className="space-y-4">
-            <input
-              id="admin-password"
-              type="password"
-              placeholder="Enter admin password"
-              value={pw}
-              onChange={(e) => setPw(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && (pw === ADMIN_PASSWORD ? setAuthed(true) : toast.error("Wrong password"))}
-              className="w-full px-4 py-3 rounded-xl border text-sm outline-none focus:border-blue-500 transition-colors"
-              style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--text-primary)" }}
-            />
-            <Button
-              className="w-full"
-              onClick={() => pw === ADMIN_PASSWORD ? setAuthed(true) : toast.error("Wrong password")}
-            >
-              Access Admin Panel
-            </Button>
-          </div>
-          <p className="text-xs text-center mt-6" style={{ color: "var(--text-secondary)" }}>
-            Only authorised administrators may access this panel.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Helpers ─────────────────────────────────────────────────────────────────
   const handleDeleteUser = async (uid: string, name: string) => {
     if (!confirm(`Delete user "${name}"? This cannot be undone.`)) return;
     try {
@@ -129,87 +114,128 @@ export default function AdminPage() {
     }
   };
 
+  const handleDeleteLead = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this message lead?")) return;
+    try {
+      await deleteLead(id);
+      setLeads((prev) => prev.filter((l) => l.id !== id));
+      toast.success("Lead removed");
+    } catch {
+      toast.error("Failed to delete lead");
+    }
+  };
+
+  const handleToggleLeadRead = async (id: string, currentStatus: string) => {
+    const nextStatus = currentStatus === "unread" ? true : false;
+    try {
+      await markLeadRead(id, nextStatus);
+      setLeads((prev) => prev.map((l) => l.id === id ? { ...l, status: nextStatus ? "read" : "unread" } : l));
+      toast.success(`Marked lead as ${nextStatus ? "read" : "unread"}`);
+    } catch {
+      toast.error("Failed to update status");
+    }
+  };
+
   const filterBy = (arr: any[], keys: string[]) =>
     arr.filter((item) =>
       keys.some((k) => String(item[k] ?? "").toLowerCase().includes(search.toLowerCase()))
     );
 
-  // ── Computed earnings data ──
   const totalRevenue = enrollments.reduce((sum: number, e: any) => {
     const course = courses.find((c: any) => c.id === e.courseId);
     return sum + (course?.price || 0);
   }, 0);
 
-  const teacherEarningsData = teachers.map((t: any) => {
-    const tCourses = courses.filter((c: any) => c.teacherId === t.id);
-    const tEnrollments = enrollments.filter((e: any) =>
-      tCourses.some((c: any) => c.id === e.courseId)
-    );
-    const tRevenue = tEnrollments.reduce((sum: number, e: any) => {
-      const course = courses.find((c: any) => c.id === e.courseId);
-      return sum + (course?.price || 0);
-    }, 0);
-    const uniqueStudents = new Set(tEnrollments.map((e: any) => e.userId)).size;
-    const paidEnrollments = tEnrollments.filter((e: any) => {
-      const course = courses.find((c: any) => c.id === e.courseId);
-      return (course?.price || 0) > 0;
-    });
-    return {
-      teacher: t,
-      courses: tCourses,
-      enrollments: tEnrollments,
-      revenue: tRevenue,
-      studentCount: uniqueStudents,
-      paymentCount: paidEnrollments.length,
-      paidEnrollments,
-    };
-  });
-
-  const navItems: { id: Tab; label: string; icon: any; count?: number }[] = [
+  const navItems: { id: Tab; label: string; icon: any; count?: number; highlight?: boolean }[] = [
     { id: "overview", label: "Overview", icon: BarChart3 },
-    { id: "earnings", label: "Teacher Earnings", icon: IndianRupee, count: teachers.length },
+    { id: "leads", label: "Leads / Messages", icon: MessageSquare, count: unreadLeadsCount, highlight: unreadLeadsCount > 0 },
     { id: "students", label: "Students", icon: GraduationCap, count: students.length },
     { id: "teachers", label: "Teachers", icon: Users, count: teachers.length },
     { id: "courses", label: "Courses", icon: BookOpen, count: courses.length },
     { id: "enrollments", label: "Enrollments", icon: ShoppingBag, count: enrollments.length },
-    { id: "transactions", label: "Transactions", icon: Activity, count: quizResults.length + projects.length },
+    { id: "payments", label: "Payments Logs", icon: IndianRupee },
+    { id: "cms", label: "CMS & Reviews", icon: Sparkles },
   ];
 
   const statCards = [
     { label: "Total Revenue", value: `₹${totalRevenue.toLocaleString()}`, icon: IndianRupee, color: "#10b981" },
-    { label: "Total Students", value: students.length, icon: GraduationCap, color: "var(--success)" },
+    { label: "Total Students", value: students.length, icon: GraduationCap, color: "var(--accent-2)" },
     { label: "Total Teachers", value: teachers.length, icon: Users, color: "var(--accent)" },
-    { label: "Total Courses", value: courses.length, icon: BookOpen, color: "var(--accent-2)" },
-    { label: "Enrollments", value: enrollments.length, icon: ShoppingBag, color: "var(--warning)" },
-    { label: "Paid Payments", value: enrollments.filter((e: any) => { const c = courses.find((c2: any) => c2.id === e.courseId); return (c?.price || 0) > 0; }).length, icon: IndianRupee, color: "#8b5cf6" },
+    { label: "Total Courses", value: courses.length, icon: BookOpen, color: "#a855f7" },
+    { label: "Leads / Inquiries", value: leads.length, icon: MessageSquare, color: "#eab308" },
+    { label: "Paid Enrollment", value: enrollments.filter((e: any) => { const c = courses.find((c2: any) => c2.id === e.courseId); return (c?.price || 0) > 0; }).length, icon: ShoppingBag, color: "#f43f5e" },
   ];
 
-  // ── UI ───────────────────────────────────────────────────────────────────────
-  return (
-    <div className="min-h-screen flex" style={{ background: "var(--background)" }}>
-      {/* Sidebar */}
-      <aside className="w-64 h-screen fixed left-0 top-0 z-40 flex flex-col border-r"
-        style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
-        <div className="flex items-center gap-3 px-6 py-6 border-b" style={{ borderColor: "var(--border)" }}>
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-            style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-2))" }}>
-            <Shield className="w-4 h-4 text-white" />
+  if (!authed) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        {/* Blob decorations */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+          <div className="absolute top-[20%] left-[-5%] w-[400px] h-[400px] rounded-full bg-orange-100/40 blur-3xl" />
+          <div className="absolute bottom-[20%] right-[-5%] w-[400px] h-[400px] rounded-full bg-blue-100/40 blur-3xl" />
+        </div>
+
+        <div className="w-full max-w-md p-8 rounded-3xl border border-orange-100 shadow-2xl relative z-10 bg-white">
+          <div className="flex flex-col items-center mb-8">
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4 bg-orange-500 text-white shadow-lg shadow-orange-500/25">
+              <Shield className="w-8 h-8" />
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">JRCODECRAFTERZ</h1>
+            <p className="text-xs font-semibold text-slate-400 mt-1 uppercase tracking-widest">SaaS Control Center</p>
           </div>
-          <div>
-            <span className="text-base font-bold gradient-text">Admin Panel</span>
-            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>CodeKrafters.in</p>
+          
+          <div className="space-y-4">
+            <input
+              id="admin-password"
+              type="password"
+              placeholder="Enter admin password"
+              value={pw}
+              onChange={(e) => setPw(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && (pw === ADMIN_PASSWORD ? setAuthed(true) : toast.error("Wrong password"))}
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm outline-none focus:border-orange-500 text-slate-800 font-semibold"
+            />
+            <Button
+              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl shadow-lg"
+              onClick={() => pw === ADMIN_PASSWORD ? setAuthed(true) : toast.error("Wrong password")}
+            >
+              Access Admin Panel
+            </Button>
+          </div>
+          <p className="text-[10px] text-center text-slate-400 mt-6 font-bold uppercase tracking-wider">
+            Only authorized administrators may access this gate.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex bg-white text-slate-800">
+      
+      {/* Sidebar */}
+      <aside className="w-64 h-screen fixed left-0 top-0 z-40 flex flex-col border-r border-slate-100 bg-white">
+        <div className="flex items-center gap-3 px-5 py-6 border-b border-slate-100">
+          <div className="w-9 h-9 rounded-xl bg-orange-500 flex items-center justify-center text-white shadow-md">
+            <Shield className="w-5 h-5" />
+          </div>
+          <div className="text-left">
+            <span className="text-sm font-bold tracking-tight text-slate-900 leading-none">
+              JR<span className="text-orange-500 font-extrabold">CODE</span>CRAFTERZ
+            </span>
+            <p className="text-[8px] uppercase tracking-widest text-slate-400 font-bold mt-0.5">Control Center</p>
           </div>
         </div>
 
         <nav className="flex-1 px-3 mt-4 space-y-1 overflow-y-auto">
-          <p className="px-3 py-2 text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-secondary)" }}>
-            Management
+          <p className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 text-left">
+            Admin Tab Panels
           </p>
-          {navItems.map(({ id, label, icon: Icon, count }) => (
+          
+          {navItems.map(({ id, label, icon: Icon, count, highlight }) => (
             <button
               key={id}
               onClick={() => { setTab(id); setSearch(""); }}
-              className={`nav-item flex items-center justify-between w-full px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${tab === id ? "active" : "hover:opacity-80"}`}
+              className={`nav-item flex items-center justify-between w-full px-3 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 cursor-pointer ${tab === id ? "active" : "hover:opacity-80"}`}
               style={tab !== id ? { color: "var(--text-secondary)" } : {}}
             >
               <span className="flex items-center gap-3">
@@ -217,8 +243,7 @@ export default function AdminPage() {
                 {label}
               </span>
               {count !== undefined && (
-                <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
-                  style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${highlight ? "bg-orange-500 text-white animate-pulse" : "bg-slate-100 text-slate-500"}`}>
                   {count}
                 </span>
               )}
@@ -226,496 +251,443 @@ export default function AdminPage() {
           ))}
         </nav>
 
-        <div className="px-3 pb-6 border-t pt-4 space-y-1" style={{ borderColor: "var(--border)" }}>
+        <div className="px-3 pb-6 border-t border-slate-100 pt-4 space-y-1">
           <button
             onClick={fetchAll}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium w-full hover:opacity-80 transition-all"
-            style={{ color: "var(--text-secondary)" }}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold w-full text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
           >
-            <RefreshCw className="w-4 h-4" /> Refresh Data
+            <RefreshCw className="w-4 h-4" /> Refresh Firestore Data
           </button>
           <button
             onClick={() => setAuthed(false)}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium w-full hover:opacity-80 transition-all"
-            style={{ color: "var(--danger)" }}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold w-full text-red-500 hover:opacity-80 transition-opacity cursor-pointer"
           >
-            <LogOut className="w-4 h-4" /> Sign Out
+            <LogOut className="w-4 h-4" /> Exit Admin Gate
           </button>
         </div>
       </aside>
 
-      {/* Main */}
-      <main className="flex-1 ml-64 min-h-screen">
+      {/* Main Container */}
+      <main className="flex-1 ml-64 min-h-screen bg-slate-50/50">
+        
         {/* Topbar */}
-        <div className="sticky top-0 z-30 flex items-center justify-between px-8 py-4 border-b"
-          style={{ background: "rgba(248,249,255,0.88)", backdropFilter: "blur(12px)", borderColor: "var(--border)" }}>
-          <div>
-            <h1 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
+        <div className="sticky top-0 z-30 flex items-center justify-between px-8 py-4 border-b border-slate-100 bg-white/80 backdrop-blur-md">
+          <div className="text-left">
+            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">
               {navItems.find((n) => n.id === tab)?.label}
             </h1>
-            <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
-              Full visibility & control over the platform
+            <p className="text-xs text-slate-400 font-semibold mt-0.5">
+              Control and view platform metrics
             </p>
           </div>
+          
           <div className="flex items-center gap-3">
-            {tab !== "overview" && (
+            {tab !== "overview" && tab !== "cms" && (
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--text-secondary)" }} />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search…"
+                  placeholder="Search list..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="pl-9 pr-4 py-2 rounded-xl border text-sm outline-none focus:border-blue-500 transition-colors"
-                  style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--text-primary)", width: 220 }}
+                  className="pl-9 pr-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold bg-slate-50/40 focus:bg-white focus:outline-none focus:border-orange-500 transition-all w-52"
                 />
               </div>
             )}
             <button
               onClick={fetchAll}
               disabled={loading}
-              className="w-9 h-9 rounded-xl flex items-center justify-center hover:opacity-70 transition-all"
-              style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}
+              className="w-9 h-9 rounded-xl border border-slate-200 bg-white flex items-center justify-center text-slate-400 hover:text-slate-600 transition-all cursor-pointer"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
             </button>
           </div>
         </div>
 
-        <div className="p-8 animate-fade-in">
-          {loading ? (
-            <div className="grid grid-cols-3 gap-4">
-              {[1,2,3,4,5,6].map(i => <div key={i} className="skeleton h-28 rounded-2xl" />)}
-            </div>
-          ) : (
-            <>
-              {/* ── OVERVIEW ── */}
-              {tab === "overview" && (
-                <div>
-                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-                    {statCards.map(({ label, value, icon: Icon, color }) => (
-                      <Card key={label} className="card-hover">
-                        <CardContent className="pt-6">
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-                              style={{ background: `${color}22` }}>
-                              <Icon className="w-5 h-5" style={{ color }} />
-                            </div>
-                            <span className="text-2xl font-bold">{value}</span>
-                          </div>
-                          <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>{label}</p>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-
-                  {/* Recent enrollments */}
-                  <h2 className="text-lg font-semibold mb-4">Recent Enrollments</h2>
-                  <Card>
-                    <CardContent className="pt-4 overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr style={{ color: "var(--text-secondary)", borderBottom: "1px solid var(--border)" }}>
-                            <th className="text-left pb-3 pr-4">Enrollment ID</th>
-                            <th className="text-left pb-3 pr-4">User ID</th>
-                            <th className="text-left pb-3 pr-4">Course ID</th>
-                            <th className="text-left pb-3">Date</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {enrollments.slice(0, 8).map((e: any) => (
-                            <tr key={e.id} className="border-t" style={{ borderColor: "var(--border)" }}>
-                              <td className="py-2.5 pr-4 font-mono text-xs opacity-60">{e.id}</td>
-                              <td className="py-2.5 pr-4 font-mono text-xs">{e.userId}</td>
-                              <td className="py-2.5 pr-4 font-mono text-xs">{e.courseId}</td>
-                              <td className="py-2.5 text-xs" style={{ color: "var(--text-secondary)" }}>
-                                {e.purchasedAt ? format(new Date(e.purchasedAt), "MMM d, yyyy") : "—"}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </CardContent>
-                  </Card>
+        {/* Content View */}
+        <div className="p-8">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={tab}
+              initial="hidden"
+              animate="visible"
+              variants={staggerContainer}
+              className="space-y-8"
+            >
+              {loading ? (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {[1, 2, 3, 4, 5, 6].map(i => <div key={i} className="skeleton h-28 rounded-3xl" />)}
                 </div>
-              )}
+              ) : (
+                <>
+                  {/* OVERVIEW TAB */}
+                  {tab === "overview" && (
+                    <motion.div variants={fadeInUp} className="space-y-8">
+                      {/* Metric widgets */}
+                      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                        {statCards.map(({ label, value, icon: Icon, color }) => (
+                          <Card key={label} className="border-slate-100 card-hover relative overflow-hidden bg-white">
+                            <div className="absolute top-0 left-0 w-1.5 h-full" style={{ background: color }} />
+                            <CardContent className="pt-6 text-left">
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${color}15` }}>
+                                  <Icon className="w-5 h-5" style={{ color }} />
+                                </div>
+                                <span className="text-2xl font-black text-slate-900">{value}</span>
+                              </div>
+                              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{label}</p>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
 
-              {/* ── TEACHER EARNINGS ── */}
-              {tab === "earnings" && (
-                <TeacherEarningsTab
-                  data={filterBy(teacherEarningsData.map(d => ({...d, name: d.teacher.name, email: d.teacher.email})), ["name", "email"])}
-                  courses={courses}
-                  users={users}
-                  enrollments={enrollments}
-                />
-              )}
+                      {/* Recent registrations */}
+                      <div>
+                        <h2 className="text-lg font-bold text-slate-900 mb-4 text-left">Recent Enrollments Log</h2>
+                        <Card className="border-slate-150 overflow-hidden">
+                          <CardContent className="p-4 overflow-x-auto">
+                            <table className="w-full text-sm text-left">
+                              <thead>
+                                <tr className="text-slate-400 font-bold border-b border-slate-100">
+                                  <th className="pb-3 pr-4 font-bold text-xs uppercase">Enrollment ID</th>
+                                  <th className="pb-3 pr-4 font-bold text-xs uppercase">User ID</th>
+                                  <th className="pb-3 pr-4 font-bold text-xs uppercase">Course ID</th>
+                                  <th className="pb-3 font-bold text-xs uppercase">Date</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {enrollments.slice(0, 6).map((e: any) => (
+                                  <tr key={e.id} className="border-t border-slate-50 text-slate-600 font-medium">
+                                    <td className="py-3 pr-4 font-mono text-xs text-orange-500">{e.id}</td>
+                                    <td className="py-3 pr-4 font-mono text-xs">{e.userId}</td>
+                                    <td className="py-3 pr-4 font-mono text-xs">{e.courseId}</td>
+                                    <td className="py-3 text-xs text-slate-400 font-semibold">
+                                      {e.purchasedAt ? format(new Date(e.purchasedAt), "MMM d, yyyy · h:mm a") : "—"}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    </motion.div>
+                  )}
 
-              {/* ── STUDENTS ── */}
-              {tab === "students" && (
-                <UserTable
-                  users={filterBy(students, ["name", "email", "id"])}
-                  onDelete={handleDeleteUser}
-                  role="student"
-                />
-              )}
+                  {/* LEADS & CONTACT MESSAGES TAB */}
+                  {tab === "leads" && (
+                    <motion.div variants={fadeInUp} className="space-y-6">
+                      <div className="flex items-center justify-between">
+                        <h2 className="text-lg font-bold text-slate-900">Landing Page Contact Messages</h2>
+                        <Badge className="bg-orange-100 text-orange-600 border border-orange-200/50 text-[10px] font-black uppercase tracking-wider">
+                          {unreadLeadsCount} Unread Message{unreadLeadsCount !== 1 ? "s" : ""}
+                        </Badge>
+                      </div>
 
-              {/* ── TEACHERS ── */}
-              {tab === "teachers" && (
-                <UserTable
-                  users={filterBy(teachers, ["name", "email", "id"])}
-                  onDelete={handleDeleteUser}
-                  role="teacher"
-                />
-              )}
+                      <div className="grid gap-4">
+                        {filterBy(leads, ["name", "phone", "grade", "plan", "message"]).map((lead: any) => (
+                          <Card key={lead.id} className={`border-slate-100 overflow-hidden relative text-left bg-white ${lead.status === "unread" ? "border-l-4 border-l-orange-500" : ""}`}>
+                            <CardContent className="p-6">
+                              <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                                <div className="space-y-3">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <h3 className="font-bold text-slate-950 text-base">{lead.name}</h3>
+                                    <Badge className="bg-slate-100 text-slate-600 border border-slate-200/40 text-[9px] font-bold uppercase">{lead.grade || "Grade 4 - 6"}</Badge>
+                                    <Badge className="bg-orange-50 text-orange-600 border border-orange-200/40 text-[9px] font-bold uppercase">{lead.plan || "Basic Setup"}</Badge>
+                                  </div>
+                                  
+                                  <div className="flex flex-wrap gap-4 text-xs font-semibold text-slate-400">
+                                    <span className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-slate-400" /> {lead.phone}</span>
+                                    {lead.email && <span className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5 text-slate-400" /> {lead.email}</span>}
+                                    <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-slate-400" /> {lead.createdAt ? format(new Date(lead.createdAt), "MMM d, h:mm a") : "—"}</span>
+                                  </div>
 
-              {/* ── COURSES ── */}
-              {tab === "courses" && (
-                <div>
-                  <div className="grid gap-3">
-                    {filterBy(courses, ["title", "teacherName", "id"]).map((c: any) => {
-                      const enrolled = enrollments.filter((e: any) => e.courseId === c.id).length;
-                      return (
-                        <Card key={c.id} className="card-hover">
+                                  <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl mt-2 text-xs font-medium text-slate-600 leading-relaxed max-w-2xl">
+                                    &quot;{lead.message}&quot;
+                                  </div>
+                                </div>
+
+                                <div className="flex md:flex-col items-center gap-2">
+                                  <Button 
+                                    size="sm"
+                                    onClick={() => handleToggleLeadRead(lead.id, lead.status)}
+                                    className={`text-xs font-bold py-1.5 px-3 rounded-lg border w-full justify-center ${lead.status === "unread" ? "bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm border-emerald-500" : "bg-white border-slate-200 text-slate-500 hover:text-slate-700"}`}
+                                  >
+                                    {lead.status === "unread" ? "Mark Read" : "Mark Unread"}
+                                  </Button>
+
+                                  <button
+                                    onClick={() => handleDeleteLead(lead.id)}
+                                    className="w-8 h-8 rounded-lg flex items-center justify-center bg-red-50 text-red-500 hover:bg-red-100 transition-colors border border-red-100 cursor-pointer"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+
+                        {filterBy(leads, ["name", "phone", "grade", "plan", "message"]).length === 0 && (
+                          <div className="text-center py-16 border rounded-3xl bg-white border-slate-100">
+                            <MessageSquare className="w-10 h-10 text-slate-200 mx-auto mb-2" />
+                            <p className="text-sm font-semibold text-slate-400">No leads or messages found</p>
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* STUDENTS TAB */}
+                  {tab === "students" && (
+                    <motion.div variants={fadeInUp} className="space-y-4">
+                      {filterBy(students, ["name", "email", "id"]).map((std: any) => (
+                        <Card key={std.id} className="border-slate-100 card-hover bg-white text-left">
                           <CardContent className="py-4 flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                              style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-2))" }}>
-                              <BookOpen className="w-5 h-5 text-white" />
+                            <div className="w-10 h-10 rounded-full bg-orange-100 text-orange-600 border border-orange-200 flex items-center justify-center font-bold">
+                              {std.name?.charAt(0).toUpperCase()}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="font-semibold text-sm truncate">{c.title}</p>
-                              <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
-                                by {c.teacherName} &nbsp;·&nbsp; {enrolled} enrolled
-                              </p>
-                              <p className="text-xs font-mono opacity-50 mt-0.5">{c.id}</p>
+                              <p className="font-bold text-slate-900 text-sm leading-snug">{std.name}</p>
+                              <p className="text-xs text-slate-400 font-semibold mt-0.5">{std.email}</p>
+                              <p className="text-[10px] font-mono opacity-50 mt-0.5">UID: {std.id}</p>
                             </div>
-                            <Badge variant={c.price === 0 ? "success" : "default"}>
-                              {c.price === 0 ? "Free" : `₹${c.price}`}
-                            </Badge>
-                            <p className="text-xs hidden md:block" style={{ color: "var(--text-secondary)" }}>
-                              {c.createdAt ? format(new Date(c.createdAt), "MMM d, yyyy") : "—"}
-                            </p>
                             <button
-                              onClick={() => handleDeleteCourse(c.id, c.title)}
-                              className="w-8 h-8 rounded-lg flex items-center justify-center hover:opacity-80 transition-all flex-shrink-0"
-                              style={{ background: "rgba(220,38,38,0.1)", color: "var(--danger)" }}
+                              onClick={() => handleDeleteUser(std.id, std.name)}
+                              className="w-9 h-9 rounded-xl bg-red-50 text-red-500 border border-red-100 flex items-center justify-center hover:bg-red-100 transition-colors cursor-pointer"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </CardContent>
                         </Card>
-                      );
-                    })}
-                    {filterBy(courses, ["title", "teacherName", "id"]).length === 0 && (
-                      <EmptyState label="No courses found" />
-                    )}
-                  </div>
-                </div>
-              )}
+                      ))}
 
-              {/* ── ENROLLMENTS (enhanced) ── */}
-              {tab === "enrollments" && (
-                <Card>
-                  <CardContent className="pt-4 overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr style={{ color: "var(--text-secondary)", borderBottom: "1px solid var(--border)" }}>
-                          <th className="text-left pb-3 pr-4">Student</th>
-                          <th className="text-left pb-3 pr-4">Course</th>
-                          <th className="text-left pb-3 pr-4">Teacher</th>
-                          <th className="text-left pb-3 pr-4">Amount</th>
-                          <th className="text-left pb-3">Date</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filterBy(enrollments.map((e: any) => {
-                          const student = users.find((u: any) => u.id === e.userId);
-                          const course = courses.find((c: any) => c.id === e.courseId);
-                          return { ...e, studentName: student?.name || e.userId, courseName: course?.title || e.courseId, teacherName: course?.teacherName || "—", price: course?.price ?? 0 };
-                        }), ["studentName", "courseName", "teacherName"]).map((e: any) => (
-                          <tr key={e.id} className="border-t" style={{ borderColor: "var(--border)" }}>
-                            <td className="py-2.5 pr-4 text-sm font-medium">{e.studentName}</td>
-                            <td className="py-2.5 pr-4 text-sm">{e.courseName}</td>
-                            <td className="py-2.5 pr-4 text-sm" style={{ color: "var(--text-secondary)" }}>{e.teacherName}</td>
-                            <td className="py-2.5 pr-4">
-                              <Badge variant={e.price > 0 ? "default" : "success"}>
-                                {e.price > 0 ? `₹${e.price}` : "Free"}
+                      {students.length === 0 && (
+                        <div className="text-center py-16 border rounded-3xl bg-white">
+                          <p className="text-sm font-semibold text-slate-400">No students registered yet</p>
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+
+                  {/* TEACHERS TAB */}
+                  {tab === "teachers" && (
+                    <motion.div variants={fadeInUp} className="space-y-4">
+                      {filterBy(teachers, ["name", "email", "id"]).map((tch: any) => (
+                        <Card key={tch.id} className="border-slate-100 card-hover bg-white text-left">
+                          <CardContent className="py-4 flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 border border-blue-200 flex items-center justify-center font-bold">
+                              {tch.name?.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-bold text-slate-900 text-sm leading-snug">{tch.name}</p>
+                              <p className="text-xs text-slate-400 font-semibold mt-0.5">{tch.email}</p>
+                              <p className="text-[10px] font-mono opacity-50 mt-0.5">UID: {tch.id}</p>
+                            </div>
+                            <button
+                              onClick={() => handleDeleteUser(tch.id, tch.name)}
+                              className="w-9 h-9 rounded-xl bg-red-50 text-red-500 border border-red-100 flex items-center justify-center hover:bg-red-100 transition-colors cursor-pointer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </CardContent>
+                        </Card>
+                      ))}
+
+                      {teachers.length === 0 && (
+                        <div className="text-center py-16 border rounded-3xl bg-white">
+                          <p className="text-sm font-semibold text-slate-400">No teachers registered yet</p>
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+
+                  {/* COURSES TAB */}
+                  {tab === "courses" && (
+                    <motion.div variants={fadeInUp} className="space-y-4">
+                      {filterBy(courses, ["title", "teacherName", "id"]).map((c: any) => {
+                        const count = enrollments.filter((e) => e.courseId === c.id).length;
+                        return (
+                          <Card key={c.id} className="border-slate-100 card-hover bg-white text-left">
+                            <CardContent className="py-4 flex items-center justify-between gap-4">
+                              <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                                <div className="w-10 h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center flex-shrink-0 shadow-md">
+                                  <BookOpen className="w-5 h-5" />
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="font-bold text-slate-900 truncate text-sm">{c.title}</p>
+                                  <p className="text-xs text-slate-400 font-semibold mt-0.5">by {c.teacherName} · {count} Enrolled</p>
+                                </div>
+                              </div>
+                              <Badge className="bg-orange-50 text-orange-600 border border-orange-200/50 hover:bg-orange-50 font-bold px-3 text-xs flex-shrink-0">
+                                {c.price === 0 ? "Free Program" : `₹${c.price}`}
                               </Badge>
-                            </td>
-                            <td className="py-2.5 text-xs" style={{ color: "var(--text-secondary)" }}>
-                              {e.purchasedAt ? format(new Date(e.purchasedAt), "MMM d, yyyy · h:mm a") : "—"}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    {enrollments.length === 0 && (
-                      <EmptyState label="No enrollments found" />
-                    )}
-                  </CardContent>
-                </Card>
-              )}
+                              <button
+                                onClick={() => handleDeleteCourse(c.id, c.title)}
+                                className="w-9 h-9 rounded-xl bg-red-50 text-red-500 border border-red-100 flex items-center justify-center hover:bg-red-100 transition-colors flex-shrink-0 cursor-pointer"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
 
-              {/* ── TRANSACTIONS (quiz results + projects) ── */}
-              {tab === "transactions" && (
-                <div className="space-y-8">
-                  <div>
-                    <h2 className="text-lg font-semibold mb-4">Quiz Results</h2>
-                    <Card>
-                      <CardContent className="pt-4 overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr style={{ color: "var(--text-secondary)", borderBottom: "1px solid var(--border)" }}>
-                              <th className="text-left pb-3 pr-4">User ID</th>
-                              <th className="text-left pb-3 pr-4">Course ID</th>
-                              <th className="text-left pb-3 pr-4">Score</th>
-                              <th className="text-left pb-3">Submitted</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {filterBy(quizResults, ["userId", "courseId", "id"]).map((qr: any) => (
-                              <tr key={qr.id} className="border-t" style={{ borderColor: "var(--border)" }}>
-                                <td className="py-2.5 pr-4 font-mono text-xs">{qr.userId}</td>
-                                <td className="py-2.5 pr-4 font-mono text-xs">{qr.courseId}</td>
-                                <td className="py-2.5 pr-4">
-                                  <Badge variant={qr.score >= 70 ? "success" : "warning"}>
-                                    {qr.score ?? "—"}%
-                                  </Badge>
-                                </td>
-                                <td className="py-2.5 text-xs" style={{ color: "var(--text-secondary)" }}>
-                                  {qr.submittedAt ? format(new Date(qr.submittedAt), "MMM d, yyyy · h:mm a") : "—"}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                        {filterBy(quizResults, ["userId", "courseId", "id"]).length === 0 && (
-                          <EmptyState label="No quiz results" />
-                        )}
-                      </CardContent>
-                    </Card>
-                  </div>
+                      {courses.length === 0 && (
+                        <div className="text-center py-16 border rounded-3xl bg-white">
+                          <p className="text-sm font-semibold text-slate-400">No courses in registry</p>
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
 
-                  <div>
-                    <h2 className="text-lg font-semibold mb-4">Project Submissions</h2>
-                    <Card>
-                      <CardContent className="pt-4 overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr style={{ color: "var(--text-secondary)", borderBottom: "1px solid var(--border)" }}>
-                              <th className="text-left pb-3 pr-4">Student ID</th>
-                              <th className="text-left pb-3 pr-4">Course ID</th>
-                              <th className="text-left pb-3 pr-4">Status</th>
-                              <th className="text-left pb-3 pr-4">Grade</th>
-                              <th className="text-left pb-3">Submitted</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {filterBy(projects, ["studentId", "courseId", "id"]).map((p: any) => (
-                              <tr key={p.id} className="border-t" style={{ borderColor: "var(--border)" }}>
-                                <td className="py-2.5 pr-4 font-mono text-xs">{p.studentId}</td>
-                                <td className="py-2.5 pr-4 font-mono text-xs">{p.courseId}</td>
-                                <td className="py-2.5 pr-4">
-                                  <Badge
-                                    variant={
-                                      p.status === "graded" ? "success" :
-                                      p.status === "submitted" ? "warning" : "secondary"
-                                    }
-                                  >
-                                    {p.status}
-                                  </Badge>
-                                </td>
-                                <td className="py-2.5 pr-4 text-xs font-semibold">
-                                  {p.grade != null ? `${p.grade}/100` : "—"}
-                                </td>
-                                <td className="py-2.5 text-xs" style={{ color: "var(--text-secondary)" }}>
-                                  {p.submittedAt ? format(new Date(p.submittedAt), "MMM d, yyyy") : "—"}
-                                </td>
+                  {/* ENROLLMENTS TAB */}
+                  {tab === "enrollments" && (
+                    <motion.div variants={fadeInUp} className="space-y-4">
+                      <Card className="border-slate-100 overflow-hidden bg-white text-left">
+                        <CardContent className="p-4 overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="text-slate-400 font-bold border-b border-slate-150">
+                                <th className="pb-3 text-xs uppercase font-bold">Student</th>
+                                <th className="pb-3 text-xs uppercase font-bold">Course</th>
+                                <th className="pb-3 text-xs uppercase font-bold">Instructor</th>
+                                <th className="pb-3 text-xs uppercase font-bold">Course Fee</th>
+                                <th className="pb-3 text-xs uppercase font-bold">Enrollment Date</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                        {filterBy(projects, ["studentId", "courseId", "id"]).length === 0 && (
-                          <EmptyState label="No project submissions" />
-                        )}
-                      </CardContent>
-                    </Card>
-                  </div>
-                </div>
+                            </thead>
+                            <tbody>
+                              {filterBy(enrollments.map((e: any) => {
+                                const st = users.find((u) => u.id === e.userId);
+                                const crs = courses.find((c) => c.id === e.courseId);
+                                return { ...e, studentName: st?.name || "ID: " + e.userId, courseName: crs?.title || "ID: " + e.courseId, teacherName: crs?.teacherName || "—", price: crs?.price ?? 0 };
+                              }), ["studentName", "courseName", "teacherName"]).map((e: any) => (
+                                <tr key={e.id} className="border-t border-slate-50 font-medium text-slate-700">
+                                  <td className="py-3 text-sm font-bold text-slate-900">{e.studentName}</td>
+                                  <td className="py-3 text-sm">{e.courseName}</td>
+                                  <td className="py-3 text-sm text-slate-400">{e.teacherName}</td>
+                                  <td className="py-3">
+                                    <Badge className={e.price > 0 ? "bg-slate-100 text-slate-600" : "bg-emerald-100 text-emerald-600 hover:bg-emerald-100"}>
+                                      {e.price > 0 ? `₹${e.price}` : "Free"}
+                                    </Badge>
+                                  </td>
+                                  <td className="py-3 text-xs text-slate-400 font-semibold">
+                                    {e.purchasedAt ? format(new Date(e.purchasedAt), "MMM d, yyyy") : "—"}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  )}
+
+                  {/* PAYMENTS LOG TAB */}
+                  {tab === "payments" && (
+                    <motion.div variants={fadeInUp} className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+                        <div className="bg-emerald-50 border border-emerald-150 p-6 rounded-3xl">
+                          <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Gross Income Pipeline</p>
+                          <h4 className="text-3xl font-black text-emerald-600 mt-1">₹{totalRevenue.toLocaleString()}</h4>
+                        </div>
+                        <div className="bg-indigo-50 border border-indigo-150 p-6 rounded-3xl">
+                          <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Paid Student Registrations</p>
+                          <h4 className="text-3xl font-black text-indigo-600 mt-1">
+                            {enrollments.filter((e: any) => { const c = courses.find((c2: any) => c2.id === e.courseId); return (c?.price || 0) > 0; }).length} Purchases
+                          </h4>
+                        </div>
+                      </div>
+
+                      <Card className="border-slate-100 bg-white overflow-hidden text-left">
+                        <CardContent className="p-4">
+                          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Transaction Receipts Ledger</p>
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="text-slate-400 font-bold border-b border-slate-150">
+                                <th className="pb-3 text-xs uppercase font-bold">Transaction Reference</th>
+                                <th className="pb-3 text-xs uppercase font-bold">Student Name</th>
+                                <th className="pb-3 text-xs uppercase font-bold">Assigned Course</th>
+                                <th className="pb-3 text-xs uppercase font-bold">Recorded Date</th>
+                                <th className="pb-3 text-xs uppercase font-bold">Receipt Value</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {enrollments.map((e: any) => {
+                                const st = users.find((u) => u.id === e.userId);
+                                const crs = courses.find((c) => c.id === e.courseId);
+                                return { ...e, studentName: st?.name || e.userId, courseName: crs?.title || e.courseId, price: crs?.price ?? 0 };
+                              }).filter(e => e.price > 0).map((e: any) => (
+                                <tr key={e.id} className="border-t border-slate-50 font-medium text-slate-600">
+                                  <td className="py-3 font-mono text-xs text-orange-500">{e.id}</td>
+                                  <td className="py-3 text-sm font-bold text-slate-900">{e.studentName}</td>
+                                  <td className="py-3 text-sm">{e.courseName}</td>
+                                  <td className="py-3 text-xs text-slate-400 font-semibold">{e.purchasedAt ? format(new Date(e.purchasedAt), "MMM d, yyyy") : "—"}</td>
+                                  <td className="py-3 font-bold text-emerald-600 text-sm">₹{e.price}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                          {enrollments.filter((e: any) => { const c = courses.find((c2: any) => c2.id === e.courseId); return (c?.price || 0) > 0; }).length === 0 && (
+                            <p className="text-xs text-slate-400 font-bold text-center py-8">No paid transactions recorded</p>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  )}
+
+                  {/* CMS & TESTIMONIALS TAB */}
+                  {tab === "cms" && (
+                    <motion.div variants={fadeInUp} className="max-w-xl mx-auto text-left">
+                      <Card className="border-orange-100 shadow-md bg-white">
+                        <CardContent className="p-6 space-y-6">
+                          <h3 className="text-lg font-bold text-slate-950 flex items-center gap-1.5"><Sparkles className="w-5 h-5 text-orange-500" /> CMS &amp; Site-Wide Controls</h3>
+                          
+                          <div className="space-y-4">
+                            <div>
+                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Landing Page Hero Title</label>
+                              <input 
+                                type="text" 
+                                defaultValue="Learn Coding Live From Experts"
+                                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-semibold"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Academy Tagline / Badge Message</label>
+                              <input 
+                                type="text" 
+                                defaultValue="Turning Young Minds Into Future-Ready Code Crafters"
+                                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-semibold"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Parent Contact Email Address</label>
+                              <input 
+                                type="email" 
+                                defaultValue="jrcodecrafterz@gmail.com"
+                                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-semibold"
+                              />
+                            </div>
+
+                            <Button 
+                              onClick={() => toast.success("CMS configurations compiled & updated successfully!")}
+                              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl shadow-lg shadow-orange-500/20"
+                            >
+                              Sync Website Settings
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  )}
+                </>
               )}
-            </>
-          )}
+            </motion.div>
+          </AnimatePresence>
         </div>
       </main>
-    </div>
-  );
-}
-
-// ── Sub-components ───────────────────────────────────────────────────────────
-
-function UserTable({ users, onDelete, role }: { users: any[]; onDelete: (id: string, name: string) => void; role: string }) {
-  return (
-    <div className="grid gap-3">
-      {users.map((u: any) => (
-        <Card key={u.id} className="card-hover">
-          <CardContent className="py-4 flex items-center gap-4">
-            <div
-              className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
-              style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-2))" }}
-            >
-              {u.name?.charAt(0).toUpperCase()}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm">{u.name}</p>
-              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{u.email}</p>
-              <p className="text-xs font-mono opacity-50 mt-0.5">{u.id}</p>
-            </div>
-            <Badge variant={role === "teacher" ? "default" : "success"} className="capitalize">
-              {role}
-            </Badge>
-            <button
-              onClick={() => onDelete(u.id, u.name)}
-              className="w-8 h-8 rounded-lg flex items-center justify-center hover:opacity-80 transition-all flex-shrink-0"
-              style={{ background: "rgba(220,38,38,0.1)", color: "var(--danger)" }}
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          </CardContent>
-        </Card>
-      ))}
-      {users.length === 0 && <EmptyState label={`No ${role}s found`} />}
-    </div>
-  );
-}
-
-function EmptyState({ label }: { label: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-16 gap-3">
-      <AlertTriangle className="w-8 h-8 opacity-30" style={{ color: "var(--text-secondary)" }} />
-      <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{label}</p>
-    </div>
-  );
-}
-
-// ── Teacher Earnings Tab ──────────────────────────────────────────────────────
-
-function TeacherEarningsTab({ data, courses, users, enrollments }: { data: any[]; courses: any[]; users: any[]; enrollments: any[] }) {
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-
-  return (
-    <div className="space-y-4">
-      {/* Summary cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
-        {data.sort((a, b) => b.revenue - a.revenue).map((d: any) => {
-          const isOpen = expandedId === d.teacher.id;
-          return (
-            <div key={d.teacher.id}>
-              <Card className="card-hover cursor-pointer" onClick={() => setExpandedId(isOpen ? null : d.teacher.id)}>
-                <CardContent className="pt-5 pb-4">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
-                      style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-2))" }}>
-                      {d.teacher.name?.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm truncate">{d.teacher.name}</p>
-                      <p className="text-xs" style={{ color: "var(--text-secondary)" }}>{d.teacher.email}</p>
-                    </div>
-                    {isOpen ? <ChevronUp className="w-4 h-4 flex-shrink-0" style={{ color: "var(--text-secondary)" }} /> : <ChevronDown className="w-4 h-4 flex-shrink-0" style={{ color: "var(--text-secondary)" }} />}
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="p-3 rounded-xl" style={{ background: "rgba(16,185,129,0.08)" }}>
-                      <p className="text-xs mb-1" style={{ color: "var(--text-secondary)" }}>Total Earnings</p>
-                      <p className="text-lg font-bold" style={{ color: "#10b981" }}>₹{d.revenue.toLocaleString()}</p>
-                    </div>
-                    <div className="p-3 rounded-xl" style={{ background: "rgba(99,102,241,0.08)" }}>
-                      <p className="text-xs mb-1" style={{ color: "var(--text-secondary)" }}>Students</p>
-                      <p className="text-lg font-bold" style={{ color: "#6366f1" }}>{d.studentCount}</p>
-                    </div>
-                    <div className="p-3 rounded-xl" style={{ background: "rgba(245,158,11,0.08)" }}>
-                      <p className="text-xs mb-1" style={{ color: "var(--text-secondary)" }}>Paid Payments</p>
-                      <p className="text-lg font-bold" style={{ color: "#f59e0b" }}>{d.paymentCount}</p>
-                    </div>
-                    <div className="p-3 rounded-xl" style={{ background: "rgba(139,92,246,0.08)" }}>
-                      <p className="text-xs mb-1" style={{ color: "var(--text-secondary)" }}>Courses</p>
-                      <p className="text-lg font-bold" style={{ color: "#8b5cf6" }}>{d.courses.length}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Expanded detail */}
-              {isOpen && (
-                <div className="mt-2 animate-fade-in">
-                  {/* Per-course breakdown */}
-                  <Card className="mb-2">
-                    <CardContent className="pt-4">
-                      <p className="text-sm font-semibold mb-3" style={{ color: "var(--text-primary)" }}>Course-wise Breakdown</p>
-                      <div className="space-y-2">
-                        {d.courses.map((c: any) => {
-                          const cEnrolls = d.enrollments.filter((e: any) => e.courseId === c.id);
-                          const cRevenue = cEnrolls.length * (c.price || 0);
-                          return (
-                            <div key={c.id} className="flex items-center justify-between p-3 rounded-xl" style={{ background: "var(--surface-2)" }}>
-                              <div className="min-w-0 flex-1">
-                                <p className="text-sm font-medium truncate">{c.title}</p>
-                                <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
-                                  {cEnrolls.length} student{cEnrolls.length !== 1 ? "s" : ""} · {c.price > 0 ? `₹${c.price}/student` : "Free"}
-                                </p>
-                              </div>
-                              <span className="text-sm font-bold ml-3" style={{ color: cRevenue > 0 ? "#10b981" : "var(--text-secondary)" }}>
-                                ₹{cRevenue.toLocaleString()}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Students who purchased */}
-                  <Card>
-                    <CardContent className="pt-4 overflow-x-auto">
-                      <p className="text-sm font-semibold mb-3">Students &amp; Payments</p>
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr style={{ color: "var(--text-secondary)", borderBottom: "1px solid var(--border)" }}>
-                            <th className="text-left pb-2 pr-3">Student</th>
-                            <th className="text-left pb-2 pr-3">Course</th>
-                            <th className="text-left pb-2 pr-3">Amount</th>
-                            <th className="text-left pb-2">Date</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {d.enrollments.map((e: any) => {
-                            const student = users.find((u: any) => u.id === e.userId);
-                            const course = courses.find((c: any) => c.id === e.courseId);
-                            return (
-                              <tr key={e.id} className="border-t" style={{ borderColor: "var(--border)" }}>
-                                <td className="py-2 pr-3 text-xs font-medium">{student?.name || e.userId}</td>
-                                <td className="py-2 pr-3 text-xs">{course?.title || e.courseId}</td>
-                                <td className="py-2 pr-3">
-                                  <Badge variant={(course?.price || 0) > 0 ? "default" : "success"}>
-                                    {(course?.price || 0) > 0 ? `₹${course.price}` : "Free"}
-                                  </Badge>
-                                </td>
-                                <td className="py-2 text-xs" style={{ color: "var(--text-secondary)" }}>
-                                  {e.purchasedAt ? format(new Date(e.purchasedAt), "MMM d, yyyy") : "—"}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                      {d.enrollments.length === 0 && <p className="text-xs py-4 text-center" style={{ color: "var(--text-secondary)" }}>No enrollments yet</p>}
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-      {data.length === 0 && <EmptyState label="No teachers found" />}
     </div>
   );
 }

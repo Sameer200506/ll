@@ -49,24 +49,32 @@ export function Sidebar() {
       style={{ background: "var(--surface)", borderColor: "var(--border)" }}
     >
       {/* Logo */}
-      <div className="flex items-center gap-3 px-6 py-6 border-b" style={{ borderColor: "var(--border)" }}>
-        <img src="/assets/Favicon.png" alt="CodeKrafters Logo" className="w-8 h-8 object-contain" />
-        <span className="text-lg font-bold gradient-text">CodeKrafters.in</span>
+      <div className="flex items-center gap-3 px-5 py-6 border-b" style={{ borderColor: "var(--border)" }}>
+        <img src="/assets/mainlogo.png" alt="JRCODECRAFTERZ Logo" className="w-8 h-8 object-contain rounded-lg shadow-sm border border-orange-100" />
+        <div className="flex flex-col">
+          <span className="text-sm font-bold tracking-tight text-slate-900 leading-none">
+            JR<span className="text-orange-500 font-extrabold">CODE</span>CRAFTERZ
+          </span>
+          <span className="text-[8px] uppercase tracking-widest text-slate-400 font-bold mt-0.5">Academy</span>
+        </div>
       </div>
 
       {/* User info */}
-      <div className="px-4 py-4 mx-3 mt-3 rounded-xl" style={{ background: "var(--surface-2)" }}>
+      <div className="px-4 py-4 mx-3 mt-3 rounded-xl border border-orange-100/60" style={{ background: "var(--surface-2)" }}>
         <div className="flex items-center gap-3">
           <div
             className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
-            style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-2))" }}
+            style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-orange))" }}
           >
             {user?.name?.charAt(0).toUpperCase()}
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>{user?.name}</p>
-            <p className="text-xs capitalize px-1.5 py-0.5 rounded-full inline-block mt-0.5"
-              style={{ background: user?.role === "teacher" ? "rgba(37,99,235,0.15)" : "rgba(5,150,105,0.15)", color: user?.role === "teacher" ? "var(--accent)" : "var(--success)" }}>
+            <p className="text-sm font-bold truncate" style={{ color: "var(--text-primary)" }}>{user?.name}</p>
+            <p className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full inline-block mt-0.5"
+              style={{ 
+                background: user?.role === "teacher" ? "rgba(234,88,12,0.1)" : "rgba(59,130,246,0.1)", 
+                color: user?.role === "teacher" ? "var(--accent)" : "var(--accent-2)" 
+              }}>
               {user?.role}
             </p>
           </div>
