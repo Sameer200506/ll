@@ -13,7 +13,12 @@ import {
   deleteLead,
   markLeadRead,
   approveEnrollment,
-  declineEnrollment
+  declineEnrollment,
+  getAllCertificates,
+  createCertificate,
+  deleteCertificate,
+  updateSiteSettings,
+  getSiteSettings,
 } from "@/lib/firestore";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -29,7 +34,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 
-type Tab = "overview" | "leads" | "students" | "teachers" | "courses" | "enrollments" | "payments" | "cms";
+type Tab = "overview" | "leads" | "students" | "teachers" | "courses" | "enrollments" | "payments" | "certificates" | "cms";
 
 const ADMIN_PASSWORD = "admin123";
 
@@ -62,6 +67,18 @@ export default function AdminPage() {
   const [quizResults, setQuizResults] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [leads, setLeads] = useState<any[]>([]);
+  const [certificates, setCertificates] = useState<any[]>([]);
+
+  // Certificate form
+  const [certStudentId, setCertStudentId] = useState("");
+  const [certCourseId, setCertCourseId] = useState("");
+  const [certDate, setCertDate] = useState(new Date().toISOString().split("T")[0]);
+  const [certIssuing, setCertIssuing] = useState(false);
+
+  // CMS / Settings
+  const [logoUrl, setLogoUrl] = useState("");
+  const [whatsappNumber, setWhatsappNumber] = useState("919999999999");
+  const [settingsSaving, setSettingsSaving] = useState(false);
 
   const students = users.filter((u) => u.role === "student");
   const teachers = users.filter((u) => u.role === "teacher");
@@ -70,13 +87,14 @@ export default function AdminPage() {
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [u, c, e, qr, pr, ld] = await Promise.all([
+      const [u, c, e, qr, pr, ld, certs] = await Promise.all([
         getAllUsers(),
         getAllCourses(),
         getAllEnrollments(),
         getAllQuizResults(),
         getAllProjects(),
-        getAllLeads()
+        getAllLeads(),
+        getAllCertificates()
       ]);
       setUsers(u as any[]);
       setCourses(c as any[]);
@@ -84,6 +102,13 @@ export default function AdminPage() {
       setQuizResults(qr as any[]);
       setProjects(pr as any[]);
       setLeads(ld as any[]);
+      setCertificates(certs as any[]);
+      // Also load site settings
+      const settings = await getSiteSettings();
+      if (settings) {
+        setLogoUrl(settings.logoUrl || "");
+        setWhatsappNumber(settings.whatsappNumber || "919999999999");
+      }
     } catch {
       toast.error("Failed to load data");
     }
@@ -186,7 +211,8 @@ export default function AdminPage() {
     { id: "courses", label: "Courses", icon: BookOpen, count: courses.length },
     { id: "enrollments", label: "Enrollments", icon: ShoppingBag, count: pendingEnrollments.length > 0 ? `Req: ${pendingEnrollments.length}` : approvedEnrollments.length, highlight: pendingEnrollments.length > 0 },
     { id: "payments", label: "Payments Logs", icon: IndianRupee },
-    { id: "cms", label: "CMS & Reviews", icon: Sparkles },
+    { id: "certificates", label: "Certificates", icon: Sparkles, count: certificates.length },
+    { id: "cms", label: "CMS & Settings", icon: Activity },
   ];
 
   const statCards = [
@@ -757,46 +783,219 @@ export default function AdminPage() {
                     </motion.div>
                   )}
 
-                  {/* CMS & TESTIMONIALS TAB */}
+                  {/* CERTIFICATES TAB */}
+                  {tab === "certificates" && (
+                    <motion.div variants={fadeInUp} className="space-y-8">
+                      {/* Issue new certificate */}
+                      <div className="max-w-xl">
+                        <h2 className="text-lg font-bold text-slate-900 mb-4 text-left flex items-center gap-2">
+                          <Sparkles className="w-5 h-5 text-orange-500" /> Issue New Certificate
+                        </h2>
+                        <Card className="border-orange-100 shadow-md bg-white">
+                          <CardContent className="p-6 space-y-4 text-left">
+                            <div>
+                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Student</label>
+                              <select
+                                value={certStudentId}
+                                onChange={(e) => setCertStudentId(e.target.value)}
+                                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm bg-white font-semibold"
+                              >
+                                <option value="">Select a student...</option>
+                                {students.map((s: any) => (
+                                  <option key={s.id} value={s.id}>{s.name} ({s.email})</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Course</label>
+                              <select
+                                value={certCourseId}
+                                onChange={(e) => setCertCourseId(e.target.value)}
+                                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm bg-white font-semibold"
+                              >
+                                <option value="">Select a course...</option>
+                                {courses.map((c: any) => (
+                                  <option key={c.id} value={c.id}>{c.title}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Completion Date</label>
+                              <input
+                                type="date"
+                                value={certDate}
+                                onChange={(e) => setCertDate(e.target.value)}
+                                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-semibold"
+                              />
+                            </div>
+                            <Button
+                              disabled={!certStudentId || !certCourseId || certIssuing}
+                              onClick={async () => {
+                                if (!certStudentId || !certCourseId) { toast.error("Select student and course"); return; }
+                                setCertIssuing(true);
+                                try {
+                                  const student = users.find((u: any) => u.id === certStudentId);
+                                  const course = courses.find((c: any) => c.id === certCourseId);
+                                  const result = await createCertificate({
+                                    studentId: certStudentId,
+                                    studentName: student?.name || "Student",
+                                    courseId: certCourseId,
+                                    courseName: course?.title || "Course",
+                                    completionDate: certDate,
+                                    issuedBy: "JRCODE CRAFTERZ Academy"
+                                  });
+                                  toast.success(`Certificate issued! Number: ${result.certNumber}`);
+                                  fetchAll();
+                                } catch { toast.error("Failed to issue certificate"); }
+                                setCertIssuing(false);
+                              }}
+                              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl shadow-lg shadow-orange-500/20"
+                            >
+                              {certIssuing ? "Issuing..." : "Issue Certificate"}
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      {/* Certificate ledger */}
+                      <div>
+                        <h2 className="text-lg font-bold text-slate-900 mb-4 text-left">All Issued Certificates ({certificates.length})</h2>
+                        <Card className="border-slate-100 overflow-hidden bg-white text-left">
+                          <CardContent className="p-4 overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="text-slate-400 font-bold border-b border-slate-100">
+                                  <th className="pb-3 text-xs uppercase font-bold">Student</th>
+                                  <th className="pb-3 text-xs uppercase font-bold">Course</th>
+                                  <th className="pb-3 text-xs uppercase font-bold">Cert Number</th>
+                                  <th className="pb-3 text-xs uppercase font-bold">Date</th>
+                                  <th className="pb-3 text-xs uppercase font-bold">Actions</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {certificates.map((cert: any) => (
+                                  <tr key={cert.id} className="border-t border-slate-50 font-medium text-slate-700">
+                                    <td className="py-3 text-sm font-bold text-slate-900">{cert.studentName}</td>
+                                    <td className="py-3 text-sm">{cert.courseName}</td>
+                                    <td className="py-3">
+                                      <span className="font-mono text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded-lg border border-orange-100">
+                                        {cert.certNumber}
+                                      </span>
+                                    </td>
+                                    <td className="py-3 text-xs text-slate-400 font-semibold">{cert.completionDate || "—"}</td>
+                                    <td className="py-3">
+                                      <div className="flex items-center gap-2">
+                                        <a
+                                          href={`/certificates/${cert.id}`}
+                                          target="_blank"
+                                          className="w-8 h-8 rounded-lg bg-orange-50 border border-orange-200 flex items-center justify-center text-orange-500 hover:bg-orange-100 transition-colors"
+                                        >
+                                          <Eye className="w-3.5 h-3.5" />
+                                        </a>
+                                        <button
+                                          onClick={async () => {
+                                            if (!confirm("Delete this certificate?")) return;
+                                            await deleteCertificate(cert.id);
+                                            setCertificates(prev => prev.filter(c => c.id !== cert.id));
+                                            toast.success("Certificate deleted");
+                                          }}
+                                          className="w-8 h-8 rounded-lg bg-red-50 border border-red-100 flex items-center justify-center text-red-500 hover:bg-red-100 transition-colors"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                            {certificates.length === 0 && (
+                              <p className="text-xs text-slate-400 font-bold text-center py-8">No certificates issued yet</p>
+                            )}
+                          </CardContent>
+                        </Card>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* CMS & SETTINGS TAB */}
                   {tab === "cms" && (
-                    <motion.div variants={fadeInUp} className="max-w-xl mx-auto text-left">
+                    <motion.div variants={fadeInUp} className="max-w-xl mx-auto text-left space-y-6">
                       <Card className="border-orange-100 shadow-md bg-white">
                         <CardContent className="p-6 space-y-6">
-                          <h3 className="text-lg font-bold text-slate-950 flex items-center gap-1.5"><Sparkles className="w-5 h-5 text-orange-500" /> CMS &amp; Site-Wide Controls</h3>
-                          
+                          <h3 className="text-lg font-bold text-slate-950 flex items-center gap-1.5"><Sparkles className="w-5 h-5 text-orange-500" /> CMS & Site-Wide Settings</h3>
+
                           <div className="space-y-4">
                             <div>
+                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Platform Logo URL</label>
+                              <p className="text-[10px] text-slate-400 mb-1.5">Paste an image URL to update the logo across the platform.</p>
+                              <input
+                                type="url"
+                                placeholder="https://example.com/logo.png"
+                                value={logoUrl}
+                                onChange={(e) => setLogoUrl(e.target.value)}
+                                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-semibold"
+                              />
+                              {logoUrl && (
+                                <div className="mt-2 flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                  <img src={logoUrl} alt="Logo preview" className="w-10 h-10 object-contain rounded-lg border border-orange-100" />
+                                  <span className="text-xs text-slate-500 font-semibold">Logo preview</span>
+                                </div>
+                              )}
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">WhatsApp Contact Number</label>
+                              <p className="text-[10px] text-slate-400 mb-1.5">Include country code without +. E.g. 919876543210</p>
+                              <input
+                                type="text"
+                                placeholder="919876543210"
+                                value={whatsappNumber}
+                                onChange={(e) => setWhatsappNumber(e.target.value)}
+                                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-semibold"
+                              />
+                            </div>
+
+                            <div>
                               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Landing Page Hero Title</label>
-                              <input 
-                                type="text" 
+                              <input
+                                type="text"
                                 defaultValue="Learn Coding Live From Experts"
                                 className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-semibold"
                               />
                             </div>
 
                             <div>
-                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Academy Tagline / Badge Message</label>
-                              <input 
-                                type="text" 
+                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Platform Tagline</label>
+                              <input
+                                type="text"
                                 defaultValue="Turning Young Minds Into Future-Ready Code Crafters"
                                 className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-semibold"
                               />
                             </div>
 
                             <div>
-                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Parent Contact Email Address</label>
-                              <input 
-                                type="email" 
+                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Contact Email Address</label>
+                              <input
+                                type="email"
                                 defaultValue="jrcodecrafterz@gmail.com"
                                 className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-semibold"
                               />
                             </div>
 
-                            <Button 
-                              onClick={() => toast.success("CMS configurations compiled & updated successfully!")}
+                            <Button
+                              disabled={settingsSaving}
+                              onClick={async () => {
+                                setSettingsSaving(true);
+                                try {
+                                  await updateSiteSettings({ logoUrl, whatsappNumber });
+                                  toast.success("Site settings saved successfully!");
+                                } catch { toast.error("Failed to save settings"); }
+                                setSettingsSaving(false);
+                              }}
                               className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl shadow-lg shadow-orange-500/20"
                             >
-                              Sync Website Settings
+                              {settingsSaving ? "Saving..." : "Save Site Settings"}
                             </Button>
                           </div>
                         </CardContent>

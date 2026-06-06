@@ -59,7 +59,7 @@ export async function getCourse(courseId: string) {
 
 export async function getAllCourses() {
   const snap = await getDocs(collection(db, "courses"));
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as any[];
 }
 
 export async function getCoursesByTeacher(teacherId: string) {
@@ -137,6 +137,17 @@ export async function getEnrollmentsByUser(userId: string) {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
+/** Returns only approved enrollments for a student */
+export async function getApprovedEnrollmentsByUser(userId: string) {
+  const q = query(
+    collection(db, "enrollments"),
+    where("userId", "==", userId),
+    where("status", "==", "approved")
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
 export async function getEnrollmentsByCourse(courseId: string) {
   const q = query(collection(db, "enrollments"), where("courseId", "==", courseId));
   const snap = await getDocs(q);
@@ -187,11 +198,18 @@ export async function getProgress(userId: string, courseId: string) {
   return (snap.data().completedLessons as string[]) || [];
 }
 
-// ─── SCHEDULES ────────────────────────────────────────────────────────────────
+// ─── SCHEDULES (LIVE CLASSES) ──────────────────────────────────────────────────
 
 export async function createSchedule(data: any) {
-  const ref = await addDoc(collection(db, "schedules"), data);
+  const ref = await addDoc(collection(db, "schedules"), {
+    ...data,
+    createdAt: new Date().toISOString(),
+  });
   return { id: ref.id };
+}
+
+export async function updateSchedule(scheduleId: string, data: any) {
+  await updateDoc(doc(db, "schedules", scheduleId), data);
 }
 
 export async function getAllSchedules() {
@@ -405,3 +423,61 @@ export async function markNotificationRead(notificationId: string) {
   await updateDoc(doc(db, "notifications", notificationId), { read: true });
 }
 
+// ─── CERTIFICATES ─────────────────────────────────────────────────────────────
+
+/** Generate a unique certificate number like JRCC-2024-XXXXXX */
+function generateCertNumber(): string {
+  const year = new Date().getFullYear();
+  const rand = Math.random().toString(36).substring(2, 8).toUpperCase();
+  return `JRCC-${year}-${rand}`;
+}
+
+export async function createCertificate(data: {
+  studentId: string;
+  studentName: string;
+  courseId: string;
+  courseName: string;
+  completionDate: string;
+  issuedBy?: string;
+}) {
+  const certNumber = generateCertNumber();
+  const ref = await addDoc(collection(db, "certificates"), {
+    ...data,
+    certNumber,
+    issuedAt: new Date().toISOString(),
+  });
+  return { id: ref.id, certNumber };
+}
+
+export async function getCertificatesByStudent(studentId: string) {
+  const q = query(collection(db, "certificates"), where("studentId", "==", studentId));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as any[];
+}
+
+export async function getCertificate(certId: string) {
+  const snap = await getDoc(doc(db, "certificates", certId));
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...snap.data() } as any;
+}
+
+export async function getAllCertificates() {
+  const snap = await getDocs(collection(db, "certificates"));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as any[];
+}
+
+export async function deleteCertificate(certId: string) {
+  await deleteDoc(doc(db, "certificates", certId));
+}
+
+// ─── SITE SETTINGS ────────────────────────────────────────────────────────────
+
+export async function getSiteSettings() {
+  const snap = await getDoc(doc(db, "settings", "site"));
+  if (!snap.exists()) return null;
+  return snap.data() as any;
+}
+
+export async function updateSiteSettings(data: any) {
+  await setDoc(doc(db, "settings", "site"), data, { merge: true });
+}

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Zap, Eye, EyeOff, ArrowRight } from "lucide-react";
+import { Eye, EyeOff, ArrowRight } from "lucide-react";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -21,14 +21,11 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const loggedInUser = await login(email, password);
+      await login(email, password);
       toast.success("Welcome back!");
+      // Redirect all roles to home page after login
       setTimeout(() => {
-        if (loggedInUser && loggedInUser.role === "teacher") {
-          router.push("/dashboard/teacher");
-        } else {
-          router.push("/dashboard/student");
-        }
+        router.push("/");
       }, 500);
     } catch (err: any) {
       toast.error(err.message || "Login failed");
@@ -46,12 +43,17 @@ export default function LoginPage() {
       </div>
 
       <div className="relative w-full max-w-md animate-fade-in">
-        {/* Logo */}
+        {/* Logo — click goes to home */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 mb-4">
-            <img src="/assets/Favicon.png" alt="CodeKrafters Logo" className="w-10 h-10 object-contain" />
-            <span className="text-2xl font-bold gradient-text">CodeKrafters.in</span>
-          </div>
+          <Link href="/" className="inline-flex items-center gap-2 mb-4 group">
+            <img src="/assets/mainlogo.png" alt="JRCODE CRAFTERZ Logo" className="w-10 h-10 object-contain rounded-xl shadow-md border border-orange-100 group-hover:scale-105 transition-transform" />
+            <div className="flex flex-col text-left">
+              <span className="text-xl font-bold tracking-tight text-slate-900">
+                JR<span className="text-orange-500 font-extrabold">CODE</span>CRAFTERZ
+              </span>
+              <span className="text-[9px] uppercase tracking-widest text-slate-400 font-semibold leading-none">EdTech Platform</span>
+            </div>
+          </Link>
           <h1 className="text-2xl font-bold">Welcome back</h1>
           <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>Sign in to continue learning</p>
         </div>

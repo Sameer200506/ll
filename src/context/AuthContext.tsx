@@ -14,7 +14,7 @@ export interface AppUser {
   id: string;
   name: string;
   email: string;
-  role: "student" | "teacher";
+  role: "student" | "teacher" | "admin";
 }
 
 interface AuthContextType {
@@ -40,9 +40,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Firebase handles session persistence automatically
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
-        const doc = await getUserDoc(firebaseUser.uid);
-        if (doc) {
-          setUser({ id: firebaseUser.uid, name: doc.name, email: doc.email, role: doc.role });
+        const docData = await getUserDoc(firebaseUser.uid);
+        if (docData) {
+          setUser({
+            id: firebaseUser.uid,
+            name: docData.name,
+            email: docData.email,
+            role: docData.role as "student" | "teacher" | "admin",
+          });
         }
       } else {
         setUser(null);
@@ -54,9 +59,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string): Promise<AppUser> => {
     const cred = await signInWithEmailAndPassword(auth, email, password);
-    const doc = await getUserDoc(cred.user.uid);
-    if (!doc) throw new Error("User profile not found");
-    const appUser: AppUser = { id: cred.user.uid, name: doc.name, email: doc.email, role: doc.role };
+    const docData = await getUserDoc(cred.user.uid);
+    if (!docData) throw new Error("User profile not found");
+    const appUser: AppUser = {
+      id: cred.user.uid,
+      name: docData.name,
+      email: docData.email,
+      role: docData.role as "student" | "teacher" | "admin",
+    };
     setUser(appUser);
     return appUser;
   };

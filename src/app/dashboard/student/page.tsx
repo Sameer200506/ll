@@ -107,7 +107,7 @@ export default function StudentOverview() {
   };
 
   return (
-    <DashboardLayout title={`Dashboard Workspace`} description={`Review your personal learning metrics.`}>
+    <DashboardLayout title={`Dashboard Workspace`} description={`Review your personal learning metrics.`} allowedRoles={["student"]}>
       <motion.div 
         className="space-y-8"
         initial="hidden"

@@ -216,11 +216,7 @@ export default function LandingPage() {
   const [studentGrade, setStudentGrade] = useState("Grade 4 - 6");
   const [selectedPlan, setSelectedPlan] = useState("Basic Level");
 
-  useEffect(() => {
-    if (!loading && user) {
-      router.push(user.role === "teacher" ? "/dashboard/teacher" : "/dashboard/student");
-    }
-  }, [user, loading, router]);
+  // No auto-redirect — logged-in users stay on home and use the Dashboard nav button
 
   useEffect(() => {
     (async () => {
@@ -279,15 +275,20 @@ export default function LandingPage() {
 
       {/* Navbar */}
       <nav className="border-b px-6 py-4 flex items-center justify-between sticky top-0 z-50 glass-premium">
-        <div className="flex items-center gap-3 cursor-pointer" onClick={() => handleScrollToSection("hero")}>
-          <img src="/assets/mainlogo.png" alt="JRCODECRAFTERZ Logo" className="w-10 h-10 object-contain rounded-xl shadow-md border border-orange-100" />
-          <div className="flex flex-col">
+        {/* Logo — clicking goes to top of home page */}
+        <button
+          className="flex items-center gap-3 group focus:outline-none"
+          onClick={() => handleScrollToSection("hero")}
+          aria-label="Go to home"
+        >
+          <img src="/assets/mainlogo.png" alt="JRCODE CRAFTERZ Logo" className="w-10 h-10 object-contain rounded-xl shadow-md border border-orange-100 group-hover:scale-105 transition-transform" />
+          <div className="flex flex-col text-left">
             <span className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-1.5">
               JR<span className="text-orange-500 font-extrabold animate-pulse">CODE</span>CRAFTERZ
             </span>
-            <span className="text-[9px] uppercase tracking-widest text-slate-500 font-semibold leading-none">EdTech Academy</span>
+            <span className="text-[9px] uppercase tracking-widest text-slate-500 font-semibold leading-none">EdTech Platform</span>
           </div>
-        </div>
+        </button>
 
         {/* Desktop nav links */}
         <div className="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-600">
@@ -301,14 +302,39 @@ export default function LandingPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <Link href="/login">
-            <Button variant="ghost" size="sm" className="font-semibold text-slate-600 hover:text-orange-500 cursor-pointer">Sign In</Button>
-          </Link>
-          <Link href="/register">
-            <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white font-semibold shadow-lg shadow-orange-500/20 gap-1.5 transition-all cursor-pointer">
-              Book Demo <ArrowRight className="w-4 h-4" />
-            </Button>
-          </Link>
+          {user ? (
+            // Logged-in: show Dashboard button based on role
+            <>
+              <span className="hidden sm:inline text-sm font-semibold text-slate-500">
+                Hi, {user.name.split(" ")[0]} 👋
+              </span>
+              <Link
+                href={
+                  user.role === "teacher"
+                    ? "/dashboard/teacher"
+                    : user.role === "admin"
+                    ? "/admin"
+                    : "/dashboard/student"
+                }
+              >
+                <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white font-bold shadow-lg shadow-orange-500/20 gap-1.5 transition-all cursor-pointer">
+                  Dashboard <ArrowRight className="w-4 h-4" />
+                </Button>
+              </Link>
+            </>
+          ) : (
+            // Not logged in
+            <>
+              <Link href="/login">
+                <Button variant="ghost" size="sm" className="font-semibold text-slate-600 hover:text-orange-500 cursor-pointer">Sign In</Button>
+              </Link>
+              <Link href="/register">
+                <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white font-semibold shadow-lg shadow-orange-500/20 gap-1.5 transition-all cursor-pointer">
+                  Book Demo <ArrowRight className="w-4 h-4" />
+                </Button>
+              </Link>
+            </>
+          )}
         </div>
       </nav>
 

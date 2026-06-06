@@ -267,7 +267,7 @@ export default function TeacherOverview() {
   };
 
   return (
-    <DashboardLayout title={`Teacher Workspace`} description={`Review earnings, manage live setups, and assign logic challenges.`}>
+    <DashboardLayout title={`Teacher Workspace`} description={`Manage live sessions, earnings, and coding challenges.`} allowedRoles={["teacher", "admin"]}>
       <motion.div 
         className="space-y-8"
         initial="hidden"

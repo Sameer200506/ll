@@ -7,20 +7,20 @@ import { Toaster } from "sonner";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "CodeKrafters.in | Modern Learning Platform",
-  description: "Learn, grow, and connect with CodeKrafters.in — your all-in-one LMS with YouTube courses, live classes, and AI-powered quizzes.",
-  keywords: "LMS, e-learning, online courses, CodeKrafters, programming, coding, live classes, education",
+  title: "JRCODE CRAFTERZ | Modern Learning Platform",
+  description: "Learn, grow, and connect with JRCODE CRAFTERZ — your all-in-one LMS with live coding classes, projects, quizzes, and AI-powered learning for Grades 4-12.",
+  keywords: "LMS, e-learning, online courses, JRCODE CRAFTERZ, programming, coding, live classes, education, kids coding, python, javascript",
   openGraph: {
-    title: "CodeKrafters.in - Master Coding Online",
-    description: "The ultimate modern platform for learning coding with YouTube-based courses, interactive quizzes, and live class scheduling.",
-    url: "https://codekrafters.in",
-    siteName: "CodeKrafters",
+    title: "JRCODE CRAFTERZ - Master Coding Online",
+    description: "The ultimate modern platform for learning coding with live classes, interactive quizzes, and project-based learning for Grades 4–12.",
+    url: "https://jrcodecrafterz.in",
+    siteName: "JRCODE CRAFTERZ",
     images: [
       {
         url: "/assets/banner.png",
         width: 1200,
         height: 630,
-        alt: "CodeKrafters.in Platform Banner",
+        alt: "JRCODE CRAFTERZ Platform Banner",
       },
     ],
     locale: "en_IN",
