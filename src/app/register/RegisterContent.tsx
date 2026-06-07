@@ -1,44 +1,35 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Zap, Eye, EyeOff, ArrowRight, GraduationCap, BookOpen } from "lucide-react";
+import { GraduationCap, Eye, EyeOff, ArrowRight, BookOpen, ShoppingBag } from "lucide-react";
 
 export default function RegisterContent() {
   const { register } = useAuth();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"student" | "teacher">("student");
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    const r = searchParams.get("role");
-    if (r === "teacher") setRole("teacher");
-  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password.length < 6) { toast.error("Password must be at least 6 characters"); return; }
     setLoading(true);
     try {
-      const newUser = await register(email, password, name, role as "student" | "teacher");
-      toast.success("Account created successfully!");
+      // Students only — teachers are created manually by admin
+      await register(email, password, name, "student");
+      toast.success("Account created! Please select a course to get started.");
       setTimeout(() => {
-        if (newUser && newUser.role === "teacher") {
-          router.push("/dashboard/teacher");
-        } else {
-          router.push("/dashboard/student");
-        }
-      }, 500);
+        // Redirect to browse so student can pick and pay for a course immediately
+        router.push("/dashboard/student/browse");
+      }, 600);
     } catch (err: any) {
       toast.error(err.message || "Registration failed");
     } finally {
@@ -55,48 +46,60 @@ export default function RegisterContent() {
 
       <div className="relative w-full max-w-md animate-fade-in">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 mb-4">
-            <img src="/assets/Favicon.png" alt="CodeKrafters Logo" className="w-10 h-10 object-contain" />
-            <span className="text-2xl font-bold gradient-text">CodeKrafters.in</span>
-          </div>
-          <h1 className="text-2xl font-bold">Create your account</h1>
-          <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>Join thousands of learners today</p>
+          <Link href="/" className="inline-flex items-center gap-2 mb-4 group">
+            <img src="/assets/mainlogo.png" alt="JRCODE CRAFTERZ Logo" className="w-10 h-10 object-contain rounded-xl shadow-md border border-orange-100 group-hover:scale-105 transition-transform" />
+            <div className="flex flex-col text-left">
+              <span className="text-xl font-bold tracking-tight text-slate-900">
+                JR<span className="text-orange-500 font-extrabold">CODE</span>CRAFTERZ
+              </span>
+              <span className="text-[9px] uppercase tracking-widest text-slate-400 font-semibold leading-none">EdTech Platform</span>
+            </div>
+          </Link>
+          <h1 className="text-2xl font-bold">Create Student Account</h1>
+          <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
+            Sign up, then choose a course &amp; complete payment to get started
+          </p>
+        </div>
+
+        {/* Steps indicator */}
+        <div className="flex items-center gap-2 mb-6">
+          {[
+            { num: "1", label: "Register", icon: GraduationCap, active: true },
+            { num: "2", label: "Pick Course", icon: BookOpen, active: false },
+            { num: "3", label: "Pay & Get Access", icon: ShoppingBag, active: false },
+          ].map((step, i) => (
+            <div key={step.num} className="flex-1 flex flex-col items-center gap-1">
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm border-2 transition-all"
+                style={{
+                  background: step.active ? "var(--accent)" : "var(--surface-2)",
+                  borderColor: step.active ? "var(--accent)" : "var(--border)",
+                  color: step.active ? "#fff" : "var(--text-secondary)"
+                }}
+              >
+                {step.num}
+              </div>
+              <span className="text-[9px] font-bold uppercase tracking-wider text-center" style={{ color: step.active ? "var(--accent)" : "var(--text-secondary)" }}>{step.label}</span>
+              {i < 2 && <div className="absolute mt-4 w-full h-px" />}
+            </div>
+          ))}
         </div>
 
         <div className="rounded-2xl border p-8" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
-          {/* Role Toggle */}
-          <div className="flex gap-3 mb-6">
-            {(["student", "teacher"] as const).map((r) => (
-              <button
-                key={r}
-                type="button"
-                onClick={() => setRole(r)}
-                className="flex-1 flex flex-col items-center gap-2 p-4 rounded-xl border transition-all duration-200"
-                style={{
-                  background: role === r ? "rgba(37,99,235,0.1)" : "var(--surface-2)",
-                  borderColor: role === r ? "var(--accent)" : "var(--border)",
-                  color: role === r ? "var(--accent)" : "var(--text-secondary)"
-                }}
-              >
-                {r === "student" ? <GraduationCap className="w-5 h-5" /> : <BookOpen className="w-5 h-5" />}
-                <span className="text-sm font-medium capitalize">{r}</span>
-              </button>
-            ))}
-          </div>
-
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <Label>Full Name</Label>
-              <Input placeholder="John Doe" value={name} onChange={(e) => setName(e.target.value)} required />
+              <Label htmlFor="name">Full Name</Label>
+              <Input id="name" placeholder="Your full name" value={name} onChange={(e) => setName(e.target.value)} required />
             </div>
             <div className="space-y-1.5">
-              <Label>Email address</Label>
-              <Input type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              <Label htmlFor="email">Email address</Label>
+              <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </div>
             <div className="space-y-1.5">
-              <Label>Password</Label>
+              <Label htmlFor="password">Password</Label>
               <div className="relative">
                 <Input
+                  id="password"
                   type={showPw ? "text" : "password"}
                   placeholder="Min. 6 characters"
                   value={password}
@@ -111,7 +114,7 @@ export default function RegisterContent() {
                 </button>
               </div>
             </div>
-            <Button type="submit" className="w-full mt-2" disabled={loading}>
+            <Button type="submit" className="w-full mt-2 bg-orange-500 hover:bg-orange-600 text-white font-bold shadow-lg shadow-orange-500/20" disabled={loading}>
               {loading ? "Creating account..." : <><span>Create Account</span><ArrowRight className="w-4 h-4" /></>}
             </Button>
           </form>
@@ -121,6 +124,14 @@ export default function RegisterContent() {
             <Link href="/login" className="font-semibold hover:underline" style={{ color: "var(--accent-2)" }}>
               Sign in
             </Link>
+          </p>
+
+          <p className="text-center text-xs mt-3 text-slate-400">
+            Are you a teacher?{" "}
+            <Link href="/login" className="font-semibold text-orange-500 hover:underline">
+              Sign in here
+            </Link>
+            {" "}using your provided credentials.
           </p>
         </div>
       </div>

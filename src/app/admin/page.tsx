@@ -14,9 +14,6 @@ import {
   markLeadRead,
   approveEnrollment,
   declineEnrollment,
-  getAllCertificates,
-  createCertificate,
-  deleteCertificate,
   updateSiteSettings,
   getSiteSettings,
 } from "@/lib/firestore";
@@ -34,7 +31,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 
-type Tab = "overview" | "leads" | "students" | "teachers" | "courses" | "enrollments" | "payments" | "certificates" | "cms";
+type Tab = "overview" | "leads" | "students" | "teachers" | "courses" | "enrollments" | "payments" | "cms";
 
 const ADMIN_PASSWORD = "admin123";
 
@@ -67,13 +64,6 @@ export default function AdminPage() {
   const [quizResults, setQuizResults] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [leads, setLeads] = useState<any[]>([]);
-  const [certificates, setCertificates] = useState<any[]>([]);
-
-  // Certificate form
-  const [certStudentId, setCertStudentId] = useState("");
-  const [certCourseId, setCertCourseId] = useState("");
-  const [certDate, setCertDate] = useState(new Date().toISOString().split("T")[0]);
-  const [certIssuing, setCertIssuing] = useState(false);
 
   // CMS / Settings
   const [logoUrl, setLogoUrl] = useState("");
@@ -87,14 +77,13 @@ export default function AdminPage() {
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [u, c, e, qr, pr, ld, certs] = await Promise.all([
+      const [u, c, e, qr, pr, ld] = await Promise.all([
         getAllUsers(),
         getAllCourses(),
         getAllEnrollments(),
         getAllQuizResults(),
         getAllProjects(),
         getAllLeads(),
-        getAllCertificates()
       ]);
       setUsers(u as any[]);
       setCourses(c as any[]);
@@ -102,7 +91,6 @@ export default function AdminPage() {
       setQuizResults(qr as any[]);
       setProjects(pr as any[]);
       setLeads(ld as any[]);
-      setCertificates(certs as any[]);
       // Also load site settings
       const settings = await getSiteSettings();
       if (settings) {
@@ -211,7 +199,6 @@ export default function AdminPage() {
     { id: "courses", label: "Courses", icon: BookOpen, count: courses.length },
     { id: "enrollments", label: "Enrollments", icon: ShoppingBag, count: pendingEnrollments.length > 0 ? `Req: ${pendingEnrollments.length}` : approvedEnrollments.length, highlight: pendingEnrollments.length > 0 },
     { id: "payments", label: "Payments Logs", icon: IndianRupee },
-    { id: "certificates", label: "Certificates", icon: Sparkles, count: certificates.length },
     { id: "cms", label: "CMS & Settings", icon: Activity },
   ];
 
@@ -783,140 +770,6 @@ export default function AdminPage() {
                     </motion.div>
                   )}
 
-                  {/* CERTIFICATES TAB */}
-                  {tab === "certificates" && (
-                    <motion.div variants={fadeInUp} className="space-y-8">
-                      {/* Issue new certificate */}
-                      <div className="max-w-xl">
-                        <h2 className="text-lg font-bold text-slate-900 mb-4 text-left flex items-center gap-2">
-                          <Sparkles className="w-5 h-5 text-orange-500" /> Issue New Certificate
-                        </h2>
-                        <Card className="border-orange-100 shadow-md bg-white">
-                          <CardContent className="p-6 space-y-4 text-left">
-                            <div>
-                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Student</label>
-                              <select
-                                value={certStudentId}
-                                onChange={(e) => setCertStudentId(e.target.value)}
-                                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm bg-white font-semibold"
-                              >
-                                <option value="">Select a student...</option>
-                                {students.map((s: any) => (
-                                  <option key={s.id} value={s.id}>{s.name} ({s.email})</option>
-                                ))}
-                              </select>
-                            </div>
-                            <div>
-                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Course</label>
-                              <select
-                                value={certCourseId}
-                                onChange={(e) => setCertCourseId(e.target.value)}
-                                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm bg-white font-semibold"
-                              >
-                                <option value="">Select a course...</option>
-                                {courses.map((c: any) => (
-                                  <option key={c.id} value={c.id}>{c.title}</option>
-                                ))}
-                              </select>
-                            </div>
-                            <div>
-                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Completion Date</label>
-                              <input
-                                type="date"
-                                value={certDate}
-                                onChange={(e) => setCertDate(e.target.value)}
-                                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-semibold"
-                              />
-                            </div>
-                            <Button
-                              disabled={!certStudentId || !certCourseId || certIssuing}
-                              onClick={async () => {
-                                if (!certStudentId || !certCourseId) { toast.error("Select student and course"); return; }
-                                setCertIssuing(true);
-                                try {
-                                  const student = users.find((u: any) => u.id === certStudentId);
-                                  const course = courses.find((c: any) => c.id === certCourseId);
-                                  const result = await createCertificate({
-                                    studentId: certStudentId,
-                                    studentName: student?.name || "Student",
-                                    courseId: certCourseId,
-                                    courseName: course?.title || "Course",
-                                    completionDate: certDate,
-                                    issuedBy: "JRCODE CRAFTERZ Academy"
-                                  });
-                                  toast.success(`Certificate issued! Number: ${result.certNumber}`);
-                                  fetchAll();
-                                } catch { toast.error("Failed to issue certificate"); }
-                                setCertIssuing(false);
-                              }}
-                              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl shadow-lg shadow-orange-500/20"
-                            >
-                              {certIssuing ? "Issuing..." : "Issue Certificate"}
-                            </Button>
-                          </CardContent>
-                        </Card>
-                      </div>
-
-                      {/* Certificate ledger */}
-                      <div>
-                        <h2 className="text-lg font-bold text-slate-900 mb-4 text-left">All Issued Certificates ({certificates.length})</h2>
-                        <Card className="border-slate-100 overflow-hidden bg-white text-left">
-                          <CardContent className="p-4 overflow-x-auto">
-                            <table className="w-full text-sm">
-                              <thead>
-                                <tr className="text-slate-400 font-bold border-b border-slate-100">
-                                  <th className="pb-3 text-xs uppercase font-bold">Student</th>
-                                  <th className="pb-3 text-xs uppercase font-bold">Course</th>
-                                  <th className="pb-3 text-xs uppercase font-bold">Cert Number</th>
-                                  <th className="pb-3 text-xs uppercase font-bold">Date</th>
-                                  <th className="pb-3 text-xs uppercase font-bold">Actions</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {certificates.map((cert: any) => (
-                                  <tr key={cert.id} className="border-t border-slate-50 font-medium text-slate-700">
-                                    <td className="py-3 text-sm font-bold text-slate-900">{cert.studentName}</td>
-                                    <td className="py-3 text-sm">{cert.courseName}</td>
-                                    <td className="py-3">
-                                      <span className="font-mono text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded-lg border border-orange-100">
-                                        {cert.certNumber}
-                                      </span>
-                                    </td>
-                                    <td className="py-3 text-xs text-slate-400 font-semibold">{cert.completionDate || "—"}</td>
-                                    <td className="py-3">
-                                      <div className="flex items-center gap-2">
-                                        <a
-                                          href={`/certificates/${cert.id}`}
-                                          target="_blank"
-                                          className="w-8 h-8 rounded-lg bg-orange-50 border border-orange-200 flex items-center justify-center text-orange-500 hover:bg-orange-100 transition-colors"
-                                        >
-                                          <Eye className="w-3.5 h-3.5" />
-                                        </a>
-                                        <button
-                                          onClick={async () => {
-                                            if (!confirm("Delete this certificate?")) return;
-                                            await deleteCertificate(cert.id);
-                                            setCertificates(prev => prev.filter(c => c.id !== cert.id));
-                                            toast.success("Certificate deleted");
-                                          }}
-                                          className="w-8 h-8 rounded-lg bg-red-50 border border-red-100 flex items-center justify-center text-red-500 hover:bg-red-100 transition-colors"
-                                        >
-                                          <Trash2 className="w-3.5 h-3.5" />
-                                        </button>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                            {certificates.length === 0 && (
-                              <p className="text-xs text-slate-400 font-bold text-center py-8">No certificates issued yet</p>
-                            )}
-                          </CardContent>
-                        </Card>
-                      </div>
-                    </motion.div>
-                  )}
 
                   {/* CMS & SETTINGS TAB */}
                   {tab === "cms" && (

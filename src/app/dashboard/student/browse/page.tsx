@@ -94,7 +94,7 @@ export default function BrowsePage() {
   };
 
   return (
-    <DashboardLayout title="Browse Courses" description="Find and purchase courses to start learning.">
+    <DashboardLayout title="Browse Courses" description="Select a course, complete payment, and get instant access." bypassPaymentGate={true}>
       {loading ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {[1,2,3,4,5,6].map(i => <div key={i} className="skeleton h-64 rounded-2xl" />)}

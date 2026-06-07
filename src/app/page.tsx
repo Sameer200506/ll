@@ -323,14 +323,14 @@ export default function LandingPage() {
               </Link>
             </>
           ) : (
-            // Not logged in
+            // Not logged in — Sign In + Student Register
             <>
               <Link href="/login">
                 <Button variant="ghost" size="sm" className="font-semibold text-slate-600 hover:text-orange-500 cursor-pointer">Sign In</Button>
               </Link>
               <Link href="/register">
                 <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white font-semibold shadow-lg shadow-orange-500/20 gap-1.5 transition-all cursor-pointer">
-                  Book Demo <ArrowRight className="w-4 h-4" />
+                  Get Started <ArrowRight className="w-4 h-4" />
                 </Button>
               </Link>
             </>

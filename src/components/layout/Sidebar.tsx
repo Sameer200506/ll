@@ -28,7 +28,6 @@ const studentLinks = [
   { href: "/dashboard/student/tests", label: "Tests & Quizzes", icon: ClipboardList },
   { href: "/dashboard/student/projects", label: "Projects", icon: FolderOpen },
   { href: "/live-classes", label: "Live Classes", icon: Radio },
-  { href: "/certificates", label: "Certificates", icon: ClipboardList },
 ];
 
 const teacherLinks = [

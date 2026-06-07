@@ -96,10 +96,10 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <p className="text-center text-sm mt-6" style={{ color: "var(--text-secondary)" }}>
-            Don't have an account?{" "}
-            <Link href="/register" className="font-semibold hover:underline" style={{ color: "var(--accent-2)" }}>
-              Sign up free
+          <p className="text-center text-xs mt-6" style={{ color: "var(--text-secondary)" }}>
+            New student?{" "}
+            <Link href="/register" className="font-semibold hover:underline" style={{ color: "var(--accent)" }}>
+              Create a student account
             </Link>
           </p>
         </div>
