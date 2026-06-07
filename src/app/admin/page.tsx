@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createUserWithEmailAndPassword, signOut as firebaseSignOut } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 import {
   getAllUsers,
   getAllCourses,
@@ -15,6 +17,7 @@ import {
   approveEnrollment,
   declineEnrollment,
   enrollUser,
+  createUserDoc,
   updateSiteSettings,
   getSiteSettings,
 } from "@/lib/firestore";
@@ -76,6 +79,14 @@ export default function AdminPage() {
   const [assignCourseId, setAssignCourseId] = useState("");
   const [assignNote, setAssignNote] = useState("");
   const [assigning, setAssigning] = useState(false);
+
+  // Create teacher account
+  const [teacherName, setTeacherName] = useState("");
+  const [teacherEmail, setTeacherEmail] = useState("");
+  const [teacherPassword, setTeacherPassword] = useState("");
+  const [creatingTeacher, setCreatingTeacher] = useState(false);
+  const [createdTeacher, setCreatedTeacher] = useState<{ name: string; email: string; password: string } | null>(null);
+  const [showTeacherPw, setShowTeacherPw] = useState(false);
 
   const students = users.filter((u) => u.role === "student");
   const teachers = users.filter((u) => u.role === "teacher");
@@ -189,6 +200,45 @@ export default function AdminPage() {
     arr.filter((item) =>
       keys.some((k) => String(item[k] ?? "").toLowerCase().includes(search.toLowerCase()))
     );
+
+  const handleCreateTeacher = async () => {
+    if (!teacherName.trim() || !teacherEmail.trim() || !teacherPassword.trim()) {
+      toast.error("Please fill in all fields");
+      return;
+    }
+    if (teacherPassword.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
+    setCreatingTeacher(true);
+    try {
+      // Create Firebase Auth account
+      const cred = await createUserWithEmailAndPassword(auth, teacherEmail.trim(), teacherPassword);
+      // Write Firestore doc with teacher role
+      await createUserDoc(cred.user.uid, {
+        name: teacherName.trim(),
+        email: teacherEmail.trim(),
+        role: "teacher",
+      });
+      // Immediately sign out the newly created teacher account
+      await firebaseSignOut(auth);
+      // Show credentials card
+      setCreatedTeacher({ name: teacherName.trim(), email: teacherEmail.trim(), password: teacherPassword });
+      toast.success(`Teacher account created for ${teacherName.trim()}!`);
+      setTeacherName("");
+      setTeacherEmail("");
+      setTeacherPassword("");
+      fetchAll();
+    } catch (err: any) {
+      if (err.code === "auth/email-already-in-use") {
+        toast.error("This email is already registered");
+      } else {
+        toast.error(err.message || "Failed to create teacher account");
+      }
+    } finally {
+      setCreatingTeacher(false);
+    }
+  };
 
   const handleAssignCourse = async () => {
     if (!assignStudentId || !assignCourseId) {
@@ -558,33 +608,138 @@ export default function AdminPage() {
 
                   {/* TEACHERS TAB */}
                   {tab === "teachers" && (
-                    <motion.div variants={fadeInUp} className="space-y-4">
-                      {filterBy(teachers, ["name", "email", "id"]).map((tch: any) => (
-                        <Card key={tch.id} className="border-slate-100 card-hover bg-white text-left">
-                          <CardContent className="py-4 flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 border border-blue-200 flex items-center justify-center font-bold">
-                              {tch.name?.charAt(0).toUpperCase()}
+                    <motion.div variants={fadeInUp} className="space-y-6">
+
+                      {/* ── CREATE TEACHER ACCOUNT ── */}
+                      <div>
+                        <h2 className="text-lg font-bold text-slate-900 mb-4 text-left flex items-center gap-2">
+                          <UserPlus className="w-5 h-5 text-blue-500" /> Create Teacher Account
+                        </h2>
+                        <Card className="border-blue-100 shadow-md bg-white">
+                          <CardContent className="p-6 text-left space-y-4">
+                            <p className="text-xs text-slate-400 font-semibold">
+                              Create a teacher login. Share the email &amp; password with the teacher — they can sign in immediately at <span className="font-mono text-slate-600">/login</span>.
+                            </p>
+
+                            <div className="grid sm:grid-cols-3 gap-4">
+                              <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Full Name</label>
+                                <input
+                                  type="text"
+                                  placeholder="e.g. John Smith"
+                                  value={teacherName}
+                                  onChange={(e) => setTeacherName(e.target.value)}
+                                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-blue-500 text-sm font-semibold"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Email Address</label>
+                                <input
+                                  type="email"
+                                  placeholder="teacher@example.com"
+                                  value={teacherEmail}
+                                  onChange={(e) => setTeacherEmail(e.target.value)}
+                                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-blue-500 text-sm font-semibold"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Password</label>
+                                <div className="relative">
+                                  <input
+                                    type={showTeacherPw ? "text" : "password"}
+                                    placeholder="Min. 6 characters"
+                                    value={teacherPassword}
+                                    onChange={(e) => setTeacherPassword(e.target.value)}
+                                    className="w-full px-3 py-2.5 pr-10 rounded-xl border border-slate-200 focus:outline-none focus:border-blue-500 text-sm font-semibold"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowTeacherPw(!showTeacherPw)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-bold text-slate-900 text-sm leading-snug">{tch.name}</p>
-                              <p className="text-xs text-slate-400 font-semibold mt-0.5">{tch.email}</p>
-                              <p className="text-[10px] font-mono opacity-50 mt-0.5">UID: {tch.id}</p>
-                            </div>
-                            <button
-                              onClick={() => handleDeleteUser(tch.id, tch.name)}
-                              className="w-9 h-9 rounded-xl bg-red-50 text-red-500 border border-red-100 flex items-center justify-center hover:bg-red-100 transition-colors cursor-pointer"
+
+                            <Button
+                              disabled={!teacherName || !teacherEmail || !teacherPassword || creatingTeacher}
+                              onClick={handleCreateTeacher}
+                              className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2.5 px-6 rounded-xl shadow-lg shadow-blue-500/20 flex items-center gap-2"
                             >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                              {creatingTeacher ? "Creating Account..." : <><UserPlus className="w-4 h-4" /> Create Teacher Account</>}
+                            </Button>
+
+                            {/* Success credentials card */}
+                            {createdTeacher && (
+                              <div className="mt-2 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-left animate-fade-in">
+                                <div className="flex items-center justify-between mb-3">
+                                  <p className="text-xs font-black text-emerald-700 uppercase tracking-wider flex items-center gap-1.5">
+                                    <CheckCircle2 className="w-4 h-4" /> Account Created — Share These Credentials
+                                  </p>
+                                  <button
+                                    onClick={() => setCreatedTeacher(null)}
+                                    className="text-emerald-400 hover:text-emerald-600 text-xs font-bold cursor-pointer"
+                                  >
+                                    Dismiss
+                                  </button>
+                                </div>
+                                <div className="grid sm:grid-cols-3 gap-3">
+                                  <div className="bg-white rounded-xl p-3 border border-emerald-100">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Name</p>
+                                    <p className="text-sm font-bold text-slate-800 select-all">{createdTeacher.name}</p>
+                                  </div>
+                                  <div className="bg-white rounded-xl p-3 border border-emerald-100">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Email</p>
+                                    <p className="text-sm font-bold text-slate-800 select-all">{createdTeacher.email}</p>
+                                  </div>
+                                  <div className="bg-white rounded-xl p-3 border border-emerald-100">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Password</p>
+                                    <p className="text-sm font-bold text-slate-800 select-all font-mono">{createdTeacher.password}</p>
+                                  </div>
+                                </div>
+                                <p className="text-[10px] text-emerald-600 font-semibold mt-3">
+                                  ⚠️ Copy and share these credentials now — the password won't be shown again.
+                                </p>
+                              </div>
+                            )}
                           </CardContent>
                         </Card>
-                      ))}
+                      </div>
 
-                      {teachers.length === 0 && (
-                        <div className="text-center py-16 border rounded-3xl bg-white">
-                          <p className="text-sm font-semibold text-slate-400">No teachers registered yet</p>
-                        </div>
-                      )}
+                      {/* ── EXISTING TEACHERS LIST ── */}
+                      <div>
+                        <h2 className="text-lg font-bold text-slate-900 mb-4 text-left">All Teachers ({teachers.length})</h2>
+                        {filterBy(teachers, ["name", "email", "id"]).map((tch: any) => (
+                          <Card key={tch.id} className="border-slate-100 card-hover bg-white text-left mb-3">
+                            <CardContent className="py-4 flex items-center gap-4">
+                              <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 border border-blue-200 flex items-center justify-center font-bold">
+                                {tch.name?.charAt(0).toUpperCase()}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-bold text-slate-900 text-sm leading-snug">{tch.name}</p>
+                                <p className="text-xs text-slate-400 font-semibold mt-0.5">{tch.email}</p>
+                                <p className="text-[10px] font-mono opacity-50 mt-0.5">UID: {tch.id}</p>
+                              </div>
+                              <button
+                                onClick={() => handleDeleteUser(tch.id, tch.name)}
+                                className="w-9 h-9 rounded-xl bg-red-50 text-red-500 border border-red-100 flex items-center justify-center hover:bg-red-100 transition-colors cursor-pointer"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </CardContent>
+                          </Card>
+                        ))}
+
+                        {teachers.length === 0 && (
+                          <div className="text-center py-16 border rounded-3xl bg-white">
+                            <Users className="w-10 h-10 text-slate-200 mx-auto mb-2" />
+                            <p className="text-sm font-semibold text-slate-400">No teachers yet — create one above</p>
+                          </div>
+                        )}
+                      </div>
+
                     </motion.div>
                   )}
 
