@@ -14,6 +14,7 @@ import {
   markLeadRead,
   approveEnrollment,
   declineEnrollment,
+  enrollUser,
   updateSiteSettings,
   getSiteSettings,
 } from "@/lib/firestore";
@@ -25,7 +26,7 @@ import {
   Trash2, RefreshCw, Shield, GraduationCap,
   Search, LogOut, Activity, FileText, AlertTriangle,
   IndianRupee, ChevronDown, ChevronUp, Eye,
-  Mail, Phone, MessageSquare, Calendar, Sparkles, Check, CheckCircle2, Clock
+  Mail, Phone, MessageSquare, Calendar, Sparkles, Check, CheckCircle2, Clock, UserPlus
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -69,6 +70,12 @@ export default function AdminPage() {
   const [logoUrl, setLogoUrl] = useState("");
   const [whatsappNumber, setWhatsappNumber] = useState("919999999999");
   const [settingsSaving, setSettingsSaving] = useState(false);
+
+  // Manual course assignment
+  const [assignStudentId, setAssignStudentId] = useState("");
+  const [assignCourseId, setAssignCourseId] = useState("");
+  const [assignNote, setAssignNote] = useState("");
+  const [assigning, setAssigning] = useState(false);
 
   const students = users.filter((u) => u.role === "student");
   const teachers = users.filter((u) => u.role === "teacher");
@@ -182,6 +189,40 @@ export default function AdminPage() {
     arr.filter((item) =>
       keys.some((k) => String(item[k] ?? "").toLowerCase().includes(search.toLowerCase()))
     );
+
+  const handleAssignCourse = async () => {
+    if (!assignStudentId || !assignCourseId) {
+      toast.error("Please select both a student and a course");
+      return;
+    }
+    // Check if already enrolled
+    const alreadyEnrolled = enrollments.find(
+      (e: any) => e.userId === assignStudentId && e.courseId === assignCourseId
+    );
+    if (alreadyEnrolled) {
+      if (alreadyEnrolled.status === "approved") {
+        toast.error("This student is already enrolled in that course");
+        return;
+      }
+      // Pending → promote to approved
+      await approveEnrollment(assignStudentId, assignCourseId);
+      toast.success("Pending enrollment promoted to Approved!");
+    } else {
+      setAssigning(true);
+      try {
+        await enrollUser(assignStudentId, assignCourseId, "approved", assignNote || "admin-assigned");
+        toast.success("Course assigned successfully! Student now has full access.");
+        setAssignStudentId("");
+        setAssignCourseId("");
+        setAssignNote("");
+        fetchAll();
+      } catch {
+        toast.error("Failed to assign course. Please try again.");
+      } finally {
+        setAssigning(false);
+      }
+    }
+  };
 
   const pendingEnrollments = enrollments.filter((e: any) => e.status === "pending");
   const approvedEnrollments = enrollments.filter((e: any) => e.status !== "pending");
@@ -589,7 +630,96 @@ export default function AdminPage() {
                   {/* ENROLLMENTS TAB */}
                   {tab === "enrollments" && (
                     <motion.div variants={fadeInUp} className="space-y-8">
-                      {/* Section 1: Pending Enrollment Requests */}
+
+                      {/* ── MANUAL ASSIGN SECTION ── */}
+                      <div>
+                        <h2 className="text-lg font-bold text-slate-900 mb-4 text-left flex items-center gap-2">
+                          <UserPlus className="w-5 h-5 text-orange-500" /> Manually Assign a Course
+                        </h2>
+                        <Card className="border-orange-100 shadow-md bg-white">
+                          <CardContent className="p-6 text-left">
+                            <p className="text-xs text-slate-400 font-semibold mb-5">
+                              Instantly grant a student access to any course — no payment required. Perfect for scholarships, demo access, or admin-managed registrations.
+                            </p>
+                            <div className="grid sm:grid-cols-2 gap-4 mb-4">
+                              <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Select Student</label>
+                                <select
+                                  value={assignStudentId}
+                                  onChange={(e) => setAssignStudentId(e.target.value)}
+                                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm bg-white font-semibold text-slate-700"
+                                >
+                                  <option value="">— Choose a student —</option>
+                                  {students.map((s: any) => (
+                                    <option key={s.id} value={s.id}>{s.name} ({s.email})</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Select Course</label>
+                                <select
+                                  value={assignCourseId}
+                                  onChange={(e) => setAssignCourseId(e.target.value)}
+                                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm bg-white font-semibold text-slate-700"
+                                >
+                                  <option value="">— Choose a course —</option>
+                                  {courses.map((c: any) => (
+                                    <option key={c.id} value={c.id}>{c.title} {c.price > 0 ? `(₹${c.price})` : "(Free)"}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+
+                            {/* Preview — show selected student + course + existing enrollment status */}
+                            {assignStudentId && assignCourseId && (() => {
+                              const student = students.find((s: any) => s.id === assignStudentId);
+                              const course = courses.find((c: any) => c.id === assignCourseId);
+                              const existing = enrollments.find((e: any) => e.userId === assignStudentId && e.courseId === assignCourseId);
+                              return (
+                                <div className="mb-4 p-4 rounded-2xl bg-orange-50/50 border border-orange-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                  <div className="text-sm">
+                                    <p className="font-bold text-slate-900">{student?.name} <span className="font-normal text-slate-400">→</span> {course?.title}</p>
+                                    <p className="text-xs text-slate-400 font-semibold mt-0.5">
+                                      {existing
+                                        ? existing.status === "approved"
+                                          ? "⚠️ Already enrolled in this course"
+                                          : "⏳ Has a pending payment request — will be promoted to Approved"
+                                        : `✅ No existing enrollment — will grant access immediately`}
+                                    </p>
+                                  </div>
+                                  {course?.price > 0 && (
+                                    <Badge className="bg-orange-100 text-orange-600 border border-orange-200 hover:bg-orange-100 font-bold text-xs self-start sm:self-center flex-shrink-0">
+                                      ₹{course.price} — Bypassed
+                                    </Badge>
+                                  )}
+                                </div>
+                              );
+                            })()}
+
+                            <div className="mb-4">
+                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Internal Note (optional)</label>
+                              <input
+                                type="text"
+                                placeholder="e.g. Scholarship, demo access, manual payment..."
+                                value={assignNote}
+                                onChange={(e) => setAssignNote(e.target.value)}
+                                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-semibold"
+                              />
+                            </div>
+
+                            <Button
+                              disabled={!assignStudentId || !assignCourseId || assigning ||
+                                !!enrollments.find((e: any) => e.userId === assignStudentId && e.courseId === assignCourseId && e.status === "approved")}
+                              onClick={handleAssignCourse}
+                              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2"
+                            >
+                              {assigning ? "Assigning..." : <><UserPlus className="w-4 h-4" /> Assign Course & Grant Access</>}
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      {/* ── PENDING REQUESTS SECTION ── */}
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
                           <h2 className="text-lg font-bold text-slate-900">Pending Enrollment Requests</h2>
