@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent } from "@/components/ui/card";
-import { getCourse, getLessonsByCourse, getProgress, markLessonComplete, isEnrolled, getProjectsByStudent, submitProject } from "@/lib/firestore";
-import { CheckCircle2, Circle, PlayCircle, ArrowLeft, Lock, FolderOpen, Send, ExternalLink } from "lucide-react";
+import { getCourse, getLessonsByCourse, getProgress, markLessonComplete, isEnrolled, getProjectsByStudent, submitProject, createCertificate, getCertificatesByStudent } from "@/lib/firestore";
+import { CheckCircle2, Circle, PlayCircle, ArrowLeft, Lock, FolderOpen, Send, ExternalLink, Award } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
@@ -60,9 +60,40 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ courseI
   const handleMarkComplete = async () => {
     if (!activeLesson || !user) return;
     await markLessonComplete(user.id, courseId, activeLesson.id);
-    setCompletedLessons((prev) => [...new Set([...prev, activeLesson.id])]);
+    const newCompleted = [...new Set([...completedLessons, activeLesson.id])];
+    setCompletedLessons(newCompleted);
     toast.success("Lesson marked complete! ✓");
-    // Auto-advance
+
+    // Check if ALL lessons are now done → auto-generate certificate
+    if (newCompleted.length >= lessons.length) {
+      try {
+        // Avoid duplicate certificates
+        const existing = await getCertificatesByStudent(user.id);
+        const alreadyHasCert = existing.some((c: any) => c.courseId === courseId);
+        if (!alreadyHasCert) {
+          const { id } = await createCertificate({
+            studentId: user.id,
+            studentName: user.name,
+            courseId,
+            courseName: course?.title ?? "",
+            courseDuration: course?.duration ?? "",
+            completionDate: new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }),
+            issuedBy: course?.teacherName ?? "JR Code Crafterz",
+          });
+          toast.success(
+            <span>
+              🎉 Course complete! Your certificate is ready.{" "}
+              <a href={`/certificates/${id}`} className="underline font-semibold">Download it here →</a>
+            </span>,
+            { duration: 8000 }
+          );
+        }
+      } catch (e) {
+        console.error("Certificate generation error:", e);
+      }
+    }
+
+    // Auto-advance to next lesson
     const idx = lessons.findIndex((l) => l.id === activeLesson.id);
     if (idx < lessons.length - 1) setActiveLesson(lessons[idx + 1]);
   };

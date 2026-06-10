@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import {
   BookOpen, Calendar, LayoutDashboard,
   Users, ClipboardList, Video, ShoppingBag,
-  LogOut, FolderOpen, Radio, MessageCircle, Shield
+  LogOut, FolderOpen, Radio, MessageCircle, Shield, Award
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -28,6 +28,7 @@ const studentLinks = [
   { href: "/dashboard/student/tests", label: "Tests & Quizzes", icon: ClipboardList },
   { href: "/dashboard/student/projects", label: "Projects", icon: FolderOpen },
   { href: "/live-classes", label: "Live Classes", icon: Radio },
+  { href: "/certificates", label: "My Certificates", icon: Award },
 ];
 
 const teacherLinks = [

@@ -437,6 +437,7 @@ export async function createCertificate(data: {
   studentName: string;
   courseId: string;
   courseName: string;
+  courseDuration?: string;
   completionDate: string;
   issuedBy?: string;
 }) {
