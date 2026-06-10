@@ -2,24 +2,20 @@
 import { useEffect, useRef, useState } from "react";
 import { getCertificate } from "@/lib/firestore";
 import { Button } from "@/components/ui/button";
-import { Download, Loader2 } from "lucide-react";
+import { Download, Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 
-/** Renders the certificate and triggers PDF download using html2canvas + jsPDF */
 async function downloadCertificate(el: HTMLElement, fileName: string) {
   const html2canvas = (await import("html2canvas")).default;
   const jsPDF = (await import("jspdf")).jsPDF;
-
   const canvas = await html2canvas(el, {
     scale: 3,
     useCORS: true,
-    backgroundColor: "#ffffff",
+    backgroundColor: "#0b0f1a",
     logging: false,
   });
-
   const imgData = canvas.toDataURL("image/png");
-  // A4 landscape in mm
   const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const pdfW = pdf.internal.pageSize.getWidth();
   const pdfH = pdf.internal.pageSize.getHeight();
@@ -39,13 +35,12 @@ export default function CertificateViewPage({ params }: { params: Promise<{ cert
       const data = await getCertificate(p.certId);
       setCert(data);
       setLoading(false);
-      // Generate QR code pointing to JR Code Crafterz website
       try {
         const QRCode = (await import("qrcode")).default;
         const url = await QRCode.toDataURL("https://www.jrcodecrafterz.com", {
-          width: 120,
+          width: 100,
           margin: 1,
-          color: { dark: "#0a1628", light: "#ffffff" },
+          color: { dark: "#ffffff", light: "#0b0f1a" },
         });
         setQrDataUrl(url);
       } catch (e) {
@@ -60,7 +55,7 @@ export default function CertificateViewPage({ params }: { params: Promise<{ cert
     try {
       await downloadCertificate(
         certRef.current,
-        `JRCC-Certificate-${cert.studentName.replace(/\s+/g, "_")}-${cert.courseName.replace(/\s+/g, "_")}.pdf`
+        `JRCC-${cert.studentName.replace(/\s+/g, "_")}-${cert.courseName.replace(/\s+/g, "_")}.pdf`
       );
       toast.success("Certificate downloaded!");
     } catch {
@@ -72,295 +67,369 @@ export default function CertificateViewPage({ params }: { params: Promise<{ cert
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--background)" }}>
-        <Loader2 className="w-8 h-8 animate-spin" style={{ color: "var(--accent)" }} />
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "#0b0f1a" }}>
+        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
       </div>
     );
   }
 
   if (!cert) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4" style={{ background: "var(--background)" }}>
-        <h1 className="text-2xl font-bold">Certificate not found</h1>
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4" style={{ background: "#0b0f1a" }}>
+        <h1 className="text-2xl font-bold text-white">Certificate not found</h1>
         <Link href="/certificates"><Button>Back to Certificates</Button></Link>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen py-10 px-4" style={{ background: "#f0f4f8" }}>
+    <div className="min-h-screen py-10 px-4" style={{ background: "#0b0f1a" }}>
       {/* Action bar */}
-      <div className="max-w-5xl mx-auto mb-6 flex items-center justify-between">
+      <div className="max-w-5xl mx-auto mb-8 flex items-center justify-between">
         <Link href="/certificates">
-          <Button variant="outline" size="sm">← Back</Button>
+          <Button variant="outline" size="sm" className="gap-2 border-white/10 text-white/70 hover:text-white hover:bg-white/10">
+            <ArrowLeft className="w-4 h-4" /> Back
+          </Button>
         </Link>
-        <Button onClick={handleDownload} disabled={downloading} className="gap-2">
+        <Button
+          onClick={handleDownload}
+          disabled={downloading}
+          className="gap-2 px-6"
+          style={{ background: "linear-gradient(135deg, #f97316, #ea580c)" }}
+        >
           {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
           {downloading ? "Generating PDF…" : "Download Certificate"}
         </Button>
       </div>
 
-      {/* ───────────────────────────  CERTIFICATE  ─────────────────────────── */}
+      {/* ─────────────────── CERTIFICATE ─────────────────── */}
       <div
         ref={certRef}
         style={{
           width: "1122px",
           height: "794px",
           margin: "0 auto",
-          background: "#ffffff",
+          background: "#0b0f1a",
           position: "relative",
-          fontFamily: "'Georgia', 'Times New Roman', serif",
           overflow: "hidden",
+          fontFamily: "'Inter', 'Helvetica Neue', Arial, sans-serif",
         }}
       >
-        {/* Navy border frame */}
+
+        {/* ── Ambient glow blobs ── */}
+        <div style={{
+          position: "absolute", top: "-120px", left: "-80px",
+          width: "520px", height: "520px", borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(234,88,12,0.18) 0%, transparent 70%)",
+          pointerEvents: "none",
+        }} />
+        <div style={{
+          position: "absolute", bottom: "-160px", right: "-100px",
+          width: "600px", height: "600px", borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(99,102,241,0.16) 0%, transparent 70%)",
+          pointerEvents: "none",
+        }} />
+        <div style={{
+          position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)",
+          width: "700px", height: "400px", borderRadius: "50%",
+          background: "radial-gradient(ellipse, rgba(255,255,255,0.018) 0%, transparent 65%)",
+          pointerEvents: "none",
+        }} />
+
+        {/* ── Grid dot pattern ── */}
         <div style={{
           position: "absolute", inset: 0,
-          border: "18px solid #0a1628",
-          zIndex: 2, pointerEvents: "none",
-        }} />
-        {/* Gold inner line */}
-        <div style={{
-          position: "absolute", inset: "18px",
-          border: "3px solid #c9a84c",
-          zIndex: 2, pointerEvents: "none",
+          backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px)",
+          backgroundSize: "32px 32px",
+          pointerEvents: "none",
         }} />
 
-        {/* Corner gold decorations */}
-        {[
-          { top: "18px", left: "18px" },
-          { top: "18px", right: "18px" },
-          { bottom: "18px", left: "18px" },
-          { bottom: "18px", right: "18px" },
-        ].map((style, i) => (
-          <div key={i} style={{
-            position: "absolute", width: "80px", height: "80px",
-            zIndex: 3, ...style,
-          }}>
-            <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-              {i === 0 && <><path d="M0 0 L40 0 L40 5 L5 5 L5 40 L0 40 Z" fill="#c9a84c"/><path d="M0 0 L60 0 L60 3 L3 3 L3 60 L0 60 Z" fill="#e8c96a" opacity="0.5"/></>}
-              {i === 1 && <><path d="M80 0 L40 0 L40 5 L75 5 L75 40 L80 40 Z" fill="#c9a84c"/><path d="M80 0 L20 0 L20 3 L77 3 L77 60 L80 60 Z" fill="#e8c96a" opacity="0.5"/></>}
-              {i === 2 && <><path d="M0 80 L40 80 L40 75 L5 75 L5 40 L0 40 Z" fill="#c9a84c"/><path d="M0 80 L60 80 L60 77 L3 77 L3 20 L0 20 Z" fill="#e8c96a" opacity="0.5"/></>}
-              {i === 3 && <><path d="M80 80 L40 80 L40 75 L75 75 L75 40 L80 40 Z" fill="#c9a84c"/><path d="M80 80 L20 80 L20 77 L77 77 L77 20 L80 20 Z" fill="#e8c96a" opacity="0.5"/></>}
-            </svg>
-          </div>
-        ))}
-
-        {/* Main content area */}
+        {/* ── Left accent bar ── */}
         <div style={{
-          position: "absolute", inset: "40px",
-          display: "flex", flexDirection: "column", alignItems: "center",
-          textAlign: "center", zIndex: 1,
+          position: "absolute", top: 0, left: 0, width: "5px", height: "100%",
+          background: "linear-gradient(180deg, #f97316 0%, #ea580c 40%, #6366f1 100%)",
+        }} />
+
+        {/* ── Top-right geometric lines ── */}
+        <svg style={{ position: "absolute", top: 0, right: 0, width: "240px", height: "240px" }} viewBox="0 0 240 240" fill="none">
+          <circle cx="240" cy="0" r="200" stroke="rgba(255,255,255,0.03)" strokeWidth="1" fill="none"/>
+          <circle cx="240" cy="0" r="150" stroke="rgba(249,115,22,0.08)" strokeWidth="1" fill="none"/>
+          <circle cx="240" cy="0" r="100" stroke="rgba(99,102,241,0.08)" strokeWidth="1" fill="none"/>
+          <line x1="40" y1="0" x2="240" y2="200" stroke="rgba(255,255,255,0.04)" strokeWidth="1"/>
+          <line x1="100" y1="0" x2="240" y2="140" stroke="rgba(255,255,255,0.03)" strokeWidth="1"/>
+        </svg>
+
+        {/* ── Bottom-left geometric lines ── */}
+        <svg style={{ position: "absolute", bottom: 0, left: "20px", width: "200px", height: "200px" }} viewBox="0 0 200 200" fill="none">
+          <circle cx="0" cy="200" r="180" stroke="rgba(255,255,255,0.03)" strokeWidth="1" fill="none"/>
+          <circle cx="0" cy="200" r="120" stroke="rgba(249,115,22,0.06)" strokeWidth="1" fill="none"/>
+        </svg>
+
+        {/* ── Main content ── */}
+        <div style={{
+          position: "absolute", inset: 0,
+          display: "flex",
+          paddingLeft: "72px",
+          paddingRight: "56px",
+          paddingTop: "52px",
+          paddingBottom: "48px",
+          gap: "0",
         }}>
 
-          {/* ── Top: Logo + MSME badge ── */}
-          <div style={{ width: "100%", display: "flex", justifyContent: "center", alignItems: "flex-start", position: "relative", marginBottom: "8px" }}>
-            {/* Logo block */}
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}>
-              {/* JR Logo icon */}
-              <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "2px" }}>
+          {/* ── LEFT COLUMN ── */}
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+
+            {/* Brand */}
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "28px" }}>
                 <div style={{
-                  width: "52px", height: "52px",
-                  background: "linear-gradient(135deg, #0a1628 0%, #1a2e55 100%)",
+                  width: "38px", height: "38px",
+                  background: "linear-gradient(135deg, #f97316, #ea580c)",
                   borderRadius: "10px",
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  color: "#c9a84c", fontWeight: "900", fontSize: "18px", letterSpacing: "-1px",
-                  border: "2px solid #c9a84c",
+                  fontSize: "13px", fontWeight: "900", color: "#fff", letterSpacing: "-0.5px",
+                  boxShadow: "0 4px 16px rgba(249,115,22,0.4)",
                 }}>
-                  JR&lt;/&gt;
+                  JR
+                </div>
+                <div>
+                  <div style={{ fontSize: "12px", fontWeight: "700", letterSpacing: "3px", color: "#fff", lineHeight: 1 }}>
+                    JRCODE<span style={{ color: "#f97316" }}>CRAFTERZ</span>
+                  </div>
+                  <div style={{ fontSize: "7px", letterSpacing: "2px", color: "rgba(255,255,255,0.35)", marginTop: "2px" }}>
+                    CODE · CREATE · ELEVATE
+                  </div>
                 </div>
               </div>
-              <div style={{ fontSize: "18px", fontWeight: "900", letterSpacing: "4px", color: "#0a1628", fontFamily: "Arial, sans-serif", lineHeight: 1 }}>
-                JR CODE CRAFTERZ
+
+              {/* Certificate label */}
+              <div style={{ marginBottom: "16px" }}>
+                <div style={{
+                  display: "inline-flex", alignItems: "center", gap: "8px",
+                  padding: "4px 12px", borderRadius: "100px",
+                  background: "rgba(249,115,22,0.12)",
+                  border: "1px solid rgba(249,115,22,0.25)",
+                  marginBottom: "14px",
+                }}>
+                  <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#f97316" }} />
+                  <span style={{ fontSize: "9px", fontWeight: "700", letterSpacing: "3px", color: "#f97316" }}>
+                    CERTIFICATE OF COMPLETION
+                  </span>
+                </div>
+
+                <div style={{ fontSize: "44px", fontWeight: "800", color: "#fff", lineHeight: 1.1, letterSpacing: "-1px", marginBottom: "6px" }}>
+                  Certificate
+                </div>
+                <div style={{
+                  fontSize: "13px", fontWeight: "400", letterSpacing: "0.5px",
+                  color: "rgba(255,255,255,0.4)",
+                }}>
+                  This is to certify that
+                </div>
               </div>
-              <div style={{ fontSize: "9px", letterSpacing: "4px", color: "#7a6020", fontFamily: "Arial, sans-serif", marginTop: "2px" }}>
-                ─── CODE | CREATE | ELEVATE ───
+
+              {/* Student name */}
+              <div style={{ marginBottom: "20px" }}>
+                <div style={{
+                  fontSize: "34px",
+                  fontWeight: "700",
+                  color: "#ffffff",
+                  letterSpacing: "-0.5px",
+                  lineHeight: 1.15,
+                  background: "linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.75) 100%)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  backgroundClip: "text",
+                }}>
+                  {cert.studentName}
+                </div>
+                <div style={{
+                  width: "180px", height: "2px", marginTop: "8px",
+                  background: "linear-gradient(90deg, #f97316, rgba(99,102,241,0.5), transparent)",
+                  borderRadius: "2px",
+                }} />
               </div>
-              <div style={{ fontSize: "9px", color: "#555", fontFamily: "Arial, sans-serif", marginTop: "2px" }}>
-                (An MSME Registered Organization)
+
+              {/* Course info */}
+              <div style={{ marginBottom: "28px" }}>
+                <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.35)", letterSpacing: "2px", marginBottom: "6px", fontWeight: "600" }}>
+                  HAS SUCCESSFULLY COMPLETED
+                </div>
+                <div style={{
+                  fontSize: "18px", fontWeight: "700", color: "#fff",
+                  lineHeight: 1.3, maxWidth: "480px",
+                }}>
+                  {cert.courseName}
+                </div>
               </div>
-              <div style={{ fontSize: "9px", fontFamily: "Arial, sans-serif", marginTop: "1px" }}>
-                <span style={{ color: "#555" }}>UDYAM REGISTRATION NO: </span>
-                <span style={{ color: "#c9a84c", fontWeight: "bold" }}>UDYAM-AP-12-1234567</span>
+
+              {/* Stats row */}
+              <div style={{ display: "flex", gap: "0", marginBottom: "0" }}>
+                {cert.courseDuration && (
+                  <div style={{
+                    paddingRight: "28px", borderRight: "1px solid rgba(255,255,255,0.08)",
+                    marginRight: "28px",
+                  }}>
+                    <div style={{ fontSize: "8px", color: "rgba(255,255,255,0.3)", letterSpacing: "2px", fontWeight: "600", marginBottom: "4px" }}>
+                      DURATION
+                    </div>
+                    <div style={{ fontSize: "14px", fontWeight: "700", color: "#fff" }}>
+                      {cert.courseDuration}
+                    </div>
+                  </div>
+                )}
+                <div style={{
+                  paddingRight: "28px", borderRight: "1px solid rgba(255,255,255,0.08)",
+                  marginRight: "28px",
+                }}>
+                  <div style={{ fontSize: "8px", color: "rgba(255,255,255,0.3)", letterSpacing: "2px", fontWeight: "600", marginBottom: "4px" }}>
+                    COMPLETED ON
+                  </div>
+                  <div style={{ fontSize: "14px", fontWeight: "700", color: "#fff" }}>
+                    {cert.completionDate}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: "8px", color: "rgba(255,255,255,0.3)", letterSpacing: "2px", fontWeight: "600", marginBottom: "4px" }}>
+                    CERTIFICATE ID
+                  </div>
+                  <div style={{ fontSize: "13px", fontWeight: "700", color: "#f97316", fontFamily: "monospace" }}>
+                    {cert.certNumber}
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* MSME badge — top right */}
-            <div style={{
-              position: "absolute", top: 0, right: 0,
-              width: "80px", height: "80px",
-              background: "radial-gradient(circle at 40% 35%, #f5d76e, #c9a84c 60%, #a07820 100%)",
-              borderRadius: "50%",
-              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-              border: "3px solid #7a6020",
-              boxShadow: "0 4px 16px rgba(201,168,76,0.4)",
-            }}>
-              <div style={{ fontSize: "11px", fontWeight: "900", color: "#0a1628", letterSpacing: "1px", lineHeight: 1, fontFamily: "Arial, sans-serif" }}>MSME</div>
-              <div style={{ fontSize: "6px", color: "#0a1628", textAlign: "center", fontFamily: "Arial, sans-serif", lineHeight: 1.2, marginTop: "2px" }}>REGISTERED<br/>ORGANIZATION</div>
-              <div style={{ fontSize: "11px", color: "#0a1628", marginTop: "3px" }}>★ ★ ★</div>
+            {/* Signatures */}
+            <div style={{ display: "flex", gap: "40px", alignItems: "flex-end" }}>
+              <div>
+                <div style={{
+                  fontSize: "20px",
+                  fontWeight: "700",
+                  color: "rgba(255,255,255,0.7)",
+                  fontStyle: "italic",
+                  fontFamily: "Georgia, serif",
+                  marginBottom: "6px",
+                }}>
+                  {cert.issuedBy || "JR Code Crafterz"}
+                </div>
+                <div style={{ width: "120px", height: "1px", background: "rgba(255,255,255,0.15)", marginBottom: "5px" }} />
+                <div style={{ fontSize: "8px", color: "rgba(255,255,255,0.3)", letterSpacing: "2px", fontWeight: "600" }}>
+                  INSTRUCTOR / AUTHORIZED
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* ── CERTIFICATE heading ── */}
-          <div style={{ marginBottom: "2px" }}>
-            <div style={{
-              fontSize: "52px", fontWeight: "900", letterSpacing: "12px",
-              color: "#0a1628", lineHeight: 1, fontFamily: "Arial, sans-serif",
-              textTransform: "uppercase",
-            }}>
-              CERTIFICATE
-            </div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "12px", marginTop: "2px" }}>
-              <div style={{ height: "2px", width: "60px", background: "#c9a84c" }} />
-              <div style={{ fontSize: "14px", letterSpacing: "8px", color: "#c9a84c", fontFamily: "Arial, sans-serif", fontWeight: "bold" }}>
-                OF COMPLETION
-              </div>
-              <div style={{ height: "2px", width: "60px", background: "#c9a84c" }} />
-            </div>
-          </div>
-
-          {/* ── This is to certify ── */}
-          <div style={{ fontSize: "11px", letterSpacing: "3px", color: "#333", marginTop: "6px", fontFamily: "Arial, sans-serif" }}>
-            THIS IS TO CERTIFY THAT
-          </div>
-
-          {/* ── Student name ── */}
+          {/* ── RIGHT COLUMN ── */}
           <div style={{
-            fontSize: "40px", color: "#0a1628",
-            fontFamily: "'Brush Script MT', 'Dancing Script', cursive",
-            marginTop: "4px", lineHeight: 1.1,
+            width: "240px",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+            alignItems: "flex-end",
+            paddingLeft: "40px",
+            borderLeft: "1px solid rgba(255,255,255,0.05)",
           }}>
-            {cert.studentName}
-          </div>
-          <div style={{ height: "1.5px", width: "380px", background: "linear-gradient(90deg, transparent, #c9a84c, transparent)", marginTop: "4px" }} />
 
-          {/* ── has successfully completed ── */}
-          <div style={{ fontSize: "11px", color: "#555", marginTop: "6px", fontFamily: "Arial, sans-serif" }}>
-            has successfully completed the course
-          </div>
-
-          {/* ── Course name banner ── */}
-          <div style={{
-            background: "#0a1628",
-            color: "#c9a84c",
-            padding: "7px 36px",
-            borderRadius: "4px",
-            fontSize: "15px",
-            fontWeight: "900",
-            letterSpacing: "3px",
-            fontFamily: "Arial, sans-serif",
-            marginTop: "6px",
-            textTransform: "uppercase",
-          }}>
-            {cert.courseName}
-          </div>
-          <div style={{ fontSize: "10px", color: "#555", marginTop: "5px", fontFamily: "Arial, sans-serif" }}>
-            with dedication and satisfactory performance.
-          </div>
-
-          {/* ── Details row ── */}
-          <div style={{
-            display: "flex", alignItems: "stretch", gap: "0",
-            border: "1px solid #e0d0a0", borderRadius: "6px", overflow: "hidden",
-            marginTop: "10px", background: "#fdf9f0",
-          }}>
-            {/* Duration */}
-            <div style={{ padding: "8px 20px", textAlign: "center", borderRight: "1px solid #e0d0a0" }}>
-              <div style={{ fontSize: "9px", fontWeight: "bold", letterSpacing: "2px", color: "#7a6020", fontFamily: "Arial, sans-serif" }}>COURSE DURATION</div>
-              <div style={{ fontSize: "13px", fontWeight: "bold", color: "#0a1628", fontFamily: "Arial, sans-serif", marginTop: "2px" }}>{cert.courseDuration || "—"}</div>
-            </div>
-            {/* Date */}
-            <div style={{ padding: "8px 20px", textAlign: "center", borderRight: "1px solid #e0d0a0" }}>
-              <div style={{ fontSize: "9px", fontWeight: "bold", letterSpacing: "2px", color: "#7a6020", fontFamily: "Arial, sans-serif" }}>DATE OF COMPLETION</div>
-              <div style={{ fontSize: "13px", fontWeight: "bold", color: "#0a1628", fontFamily: "Arial, sans-serif", marginTop: "2px" }}>{cert.completionDate}</div>
-            </div>
-            {/* Cert ID */}
-            <div style={{ padding: "8px 20px", textAlign: "center", borderRight: "1px solid #e0d0a0" }}>
-              <div style={{ fontSize: "9px", fontWeight: "bold", letterSpacing: "2px", color: "#7a6020", fontFamily: "Arial, sans-serif" }}>CERTIFICATE ID</div>
-              <div style={{ fontSize: "13px", fontWeight: "bold", color: "#0a1628", fontFamily: "Arial, sans-serif", marginTop: "2px" }}>{cert.certNumber}</div>
-            </div>
-            {/* QR */}
-            <div style={{ padding: "6px 14px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "2px" }}>
-              {qrDataUrl ? (
-                <img src={qrDataUrl} alt="Scan to verify" style={{ width: "56px", height: "56px" }} />
-              ) : (
-                <div style={{ width: "56px", height: "56px", background: "#eee" }} />
-              )}
-              <div style={{ fontSize: "7px", letterSpacing: "1px", color: "#555", fontFamily: "Arial, sans-serif" }}>SCAN TO VERIFY</div>
-            </div>
-          </div>
-
-          {/* ── Award note ── */}
-          <div style={{ fontSize: "9px", color: "#777", marginTop: "6px", fontFamily: "Arial, sans-serif", fontStyle: "italic" }}>
-            This certificate is awarded in recognition of the successful completion of all required coursework and assessments.
-          </div>
-
-          {/* ── Signatures + seal ── */}
-          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", width: "100%", marginTop: "8px" }}>
-            {/* Instructor sig */}
-            <div style={{ textAlign: "center", minWidth: "160px" }}>
-              <div style={{ fontSize: "24px", fontFamily: "'Brush Script MT', cursive", color: "#0a1628", lineHeight: 1 }}>
-                {cert.issuedBy || "JR Code Crafterz"}
+            {/* Award medallion */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0" }}>
+              <div style={{ position: "relative", width: "130px", height: "130px" }}>
+                {/* Outer ring */}
+                <div style={{
+                  position: "absolute", inset: 0, borderRadius: "50%",
+                  background: "conic-gradient(from 0deg, #f97316, #fbbf24, #6366f1, #f97316)",
+                  padding: "3px",
+                }}>
+                  <div style={{
+                    width: "100%", height: "100%", borderRadius: "50%",
+                    background: "#0f1624",
+                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                    gap: "2px",
+                  }}>
+                    {/* Star icon */}
+                    <div style={{ fontSize: "28px", lineHeight: 1 }}>⭐</div>
+                    <div style={{ fontSize: "10px", fontWeight: "800", letterSpacing: "1px", color: "#f97316", lineHeight: 1 }}>
+                      JRCODE
+                    </div>
+                    <div style={{ fontSize: "7px", color: "rgba(255,255,255,0.4)", letterSpacing: "1px" }}>
+                      CRAFTERZ
+                    </div>
+                  </div>
+                </div>
+                {/* Glow */}
+                <div style={{
+                  position: "absolute", inset: "-8px", borderRadius: "50%",
+                  background: "radial-gradient(circle, rgba(249,115,22,0.15), transparent 70%)",
+                  zIndex: -1,
+                }} />
               </div>
-              <div style={{ height: "1px", background: "#0a1628", margin: "3px 0" }} />
-              <div style={{ fontSize: "9px", fontWeight: "bold", letterSpacing: "1px", color: "#0a1628", fontFamily: "Arial, sans-serif" }}>
-                {cert.issuedBy || "INSTRUCTOR"}
+
+              {/* Issued text */}
+              <div style={{ textAlign: "center", marginTop: "16px" }}>
+                <div style={{ fontSize: "8px", color: "rgba(255,255,255,0.25)", letterSpacing: "2px", fontWeight: "600" }}>
+                  ISSUED BY
+                </div>
+                <div style={{ fontSize: "11px", fontWeight: "700", color: "rgba(255,255,255,0.6)", marginTop: "3px" }}>
+                  JR Code Crafterz
+                </div>
               </div>
-              <div style={{ fontSize: "8px", color: "#777", fontFamily: "Arial, sans-serif" }}>Instructor</div>
             </div>
 
-            {/* Center seal */}
-            <div style={{
-              width: "80px", height: "80px",
-              borderRadius: "50%",
-              border: "3px solid #0a1628",
-              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-              background: "#fff",
-            }}>
-              <div style={{ fontSize: "7px", fontWeight: "900", letterSpacing: "1px", color: "#0a1628", textAlign: "center", lineHeight: 1.2, fontFamily: "Arial, sans-serif" }}>
-                JR CODE<br/>CRAFTERZ
+            {/* QR Code */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
+              <div style={{
+                padding: "10px", borderRadius: "12px",
+                background: "rgba(255,255,255,0.05)",
+                border: "1px solid rgba(255,255,255,0.08)",
+              }}>
+                {qrDataUrl ? (
+                  <img src={qrDataUrl} alt="Scan to verify" style={{ width: "70px", height: "70px", display: "block" }} />
+                ) : (
+                  <div style={{ width: "70px", height: "70px", background: "rgba(255,255,255,0.05)", borderRadius: "6px" }} />
+                )}
               </div>
-              <div style={{ fontSize: "8px", color: "#c9a84c", marginTop: "2px" }}>⬡</div>
-              <div style={{ fontSize: "14px", fontWeight: "900", color: "#0a1628", fontFamily: "Arial, sans-serif", lineHeight: 1 }}>JR</div>
-            </div>
-
-            {/* Auth sig */}
-            <div style={{ textAlign: "center", minWidth: "160px" }}>
-              <div style={{ fontSize: "24px", fontFamily: "'Brush Script MT', cursive", color: "#0a1628", lineHeight: 1 }}>
-                Authorised
+              <div style={{ fontSize: "7px", letterSpacing: "1.5px", color: "rgba(255,255,255,0.25)", fontWeight: "600", textAlign: "center" }}>
+                SCAN TO VERIFY
               </div>
-              <div style={{ height: "1px", background: "#0a1628", margin: "3px 0" }} />
-              <div style={{ fontSize: "9px", fontWeight: "bold", letterSpacing: "1px", color: "#0a1628", fontFamily: "Arial, sans-serif" }}>
-                AUTHORIZED SIGNATURE
+              <div style={{ fontSize: "8px", color: "rgba(249,115,22,0.6)", textAlign: "center", fontWeight: "500" }}>
+                jrcodecrafterz.com
               </div>
-              <div style={{ fontSize: "8px", color: "#777", fontFamily: "Arial, sans-serif" }}>JR Code Crafterz</div>
             </div>
           </div>
         </div>
 
-        {/* ── Footer bar ── */}
+        {/* ── Bottom bar ── */}
         <div style={{
-          position: "absolute", bottom: 0, left: 0, right: 0,
-          height: "36px",
-          background: "#0a1628",
-          display: "flex", alignItems: "center", justifyContent: "center", gap: "40px",
-          zIndex: 4,
+          position: "absolute", bottom: 0, left: "5px", right: 0,
+          height: "42px",
+          background: "rgba(255,255,255,0.03)",
+          borderTop: "1px solid rgba(255,255,255,0.05)",
+          display: "flex", alignItems: "center",
+          paddingLeft: "68px", paddingRight: "56px",
+          justifyContent: "space-between",
         }}>
-          <span style={{ fontSize: "9px", color: "#c9a84c", letterSpacing: "1px", fontFamily: "Arial, sans-serif" }}>
-            📍 Hyderabad, Telangana, India
-          </span>
-          <span style={{ fontSize: "9px", color: "#c9a84c", letterSpacing: "1px", fontFamily: "Arial, sans-serif" }}>
-            🌐 www.jrcodecrafterz.com
-          </span>
-          <span style={{ fontSize: "9px", color: "#c9a84c", letterSpacing: "1px", fontFamily: "Arial, sans-serif" }}>
-            ✉ info@jrcodecrafterz.com
-          </span>
+          <div style={{ display: "flex", gap: "32px", alignItems: "center" }}>
+            <span style={{ fontSize: "8px", color: "rgba(255,255,255,0.2)", letterSpacing: "1px" }}>
+              📍 Hyderabad, Telangana, India
+            </span>
+            <span style={{ fontSize: "8px", color: "rgba(255,255,255,0.2)", letterSpacing: "1px" }}>
+              🌐 www.jrcodecrafterz.com
+            </span>
+            <span style={{ fontSize: "8px", color: "rgba(255,255,255,0.2)", letterSpacing: "1px" }}>
+              ✉ info@jrcodecrafterz.com
+            </span>
+          </div>
+          <div style={{ fontSize: "8px", color: "rgba(255,255,255,0.15)", letterSpacing: "1px" }}>
+            An MSME Registered Organization
+          </div>
         </div>
-      </div>
-      {/* ─────────────────────────────────────────────────────────────────────── */}
 
-      <p className="text-center text-xs mt-4" style={{ color: "var(--text-secondary)" }}>
-        Certificate ID: <strong>{cert?.certNumber}</strong> — Scan the QR code on the certificate to verify at jrcodecrafterz.com
+      </div>
+      {/* ─────────────────────────────────── */}
+
+      <p className="text-center text-xs mt-5" style={{ color: "rgba(255,255,255,0.25)" }}>
+        Certificate ID: <span className="font-mono" style={{ color: "#f97316" }}>{cert?.certNumber}</span> — Scan the QR code to verify at jrcodecrafterz.com
       </p>
     </div>
   );
