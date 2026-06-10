@@ -32,6 +32,8 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ courseI
   const [activeLesson, setActiveLesson] = useState<any>(null);
   const [enrolled, setEnrolled] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [markingComplete, setMarkingComplete] = useState(false);
+  const [generatingCert, setGeneratingCert] = useState(false);
 
   useEffect(() => {
     params.then((p) => setCourseId(p.courseId));
@@ -57,46 +59,96 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ courseI
     })();
   }, [courseId, user]);
 
-  const handleMarkComplete = async () => {
-    if (!activeLesson || !user) return;
-    await markLessonComplete(user.id, courseId, activeLesson.id);
-    const newCompleted = [...new Set([...completedLessons, activeLesson.id])];
-    setCompletedLessons(newCompleted);
-    toast.success("Lesson marked complete! ✓");
+  /** Shared cert generation logic */
+  const generateCert = async (newCompleted: string[]) => {
+    if (!user || !course) return null;
+    if (newCompleted.length < lessons.length && lessons.length > 0) return null;
+    try {
+      const existing = await getCertificatesByStudent(user.id);
+      const alreadyHasCert = existing.some((c: any) => c.courseId === courseId);
+      if (alreadyHasCert) {
+        const cert = existing.find((c: any) => c.courseId === courseId);
+        return cert?.id ?? null;
+      }
+      const { id } = await createCertificate({
+        studentId: user.id,
+        studentName: user.name,
+        courseId,
+        courseName: course?.title ?? "",
+        courseDuration: course?.duration ?? "",
+        completionDate: new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }),
+        issuedBy: course?.teacherName ?? "JR Code Crafterz",
+      });
+      return id;
+    } catch (e) {
+      console.error("Certificate generation error:", e);
+      return null;
+    }
+  };
 
-    // Check if ALL lessons are now done → auto-generate certificate
-    if (newCompleted.length >= lessons.length) {
-      try {
-        // Avoid duplicate certificates
-        const existing = await getCertificatesByStudent(user.id);
-        const alreadyHasCert = existing.some((c: any) => c.courseId === courseId);
-        if (!alreadyHasCert) {
-          const { id } = await createCertificate({
-            studentId: user.id,
-            studentName: user.name,
-            courseId,
-            courseName: course?.title ?? "",
-            courseDuration: course?.duration ?? "",
-            completionDate: new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }),
-            issuedBy: course?.teacherName ?? "JR Code Crafterz",
-          });
+  const handleMarkComplete = async () => {
+    if (!activeLesson || !user || markingComplete) return;
+    setMarkingComplete(true);
+    try {
+      await markLessonComplete(user.id, courseId, activeLesson.id);
+      const newCompleted = [...new Set([...completedLessons, activeLesson.id])];
+      setCompletedLessons(newCompleted);
+      toast.success("Lesson marked complete! ✓");
+
+      // Check if ALL lessons are now done → auto-generate certificate
+      if (newCompleted.length >= lessons.length) {
+        const certId = await generateCert(newCompleted);
+        if (certId) {
           toast.success(
             <span>
               🎉 Course complete! Your certificate is ready.{" "}
-              <a href={`/certificates/${id}`} className="underline font-semibold">Download it here →</a>
+              <a href={`/certificates/${certId}`} className="underline font-semibold">Download it here →</a>
             </span>,
             { duration: 8000 }
           );
         }
-      } catch (e) {
-        console.error("Certificate generation error:", e);
       }
-    }
 
-    // Auto-advance to next lesson
-    const idx = lessons.findIndex((l) => l.id === activeLesson.id);
-    if (idx < lessons.length - 1) setActiveLesson(lessons[idx + 1]);
+      // Auto-advance to next lesson
+      const idx = lessons.findIndex((l) => l.id === activeLesson.id);
+      if (idx < lessons.length - 1) setActiveLesson(lessons[idx + 1]);
+    } catch (e: any) {
+      console.error("Mark complete error:", e);
+      toast.error("Failed to save progress: " + (e?.message ?? "Unknown error"));
+    } finally {
+      setMarkingComplete(false);
+    }
   };
+
+  /** Test button: instantly generate certificate (for testing when all lessons done or no lessons) */
+  const handleTestCertificate = async () => {
+    if (!user || !course || generatingCert) return;
+    setGeneratingCert(true);
+    try {
+      const existing = await getCertificatesByStudent(user.id);
+      const existingCert = existing.find((c: any) => c.courseId === courseId);
+      if (existingCert) {
+        router.push(`/certificates/${existingCert.id}`);
+        return;
+      }
+      const { id } = await createCertificate({
+        studentId: user.id,
+        studentName: user.name,
+        courseId,
+        courseName: course?.title ?? "",
+        courseDuration: course?.duration ?? "",
+        completionDate: new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }),
+        issuedBy: course?.teacherName ?? "JR Code Crafterz",
+      });
+      toast.success("🎉 Certificate generated!");
+      router.push(`/certificates/${id}`);
+    } catch (e: any) {
+      toast.error("Failed: " + (e?.message ?? "Unknown error"));
+    } finally {
+      setGeneratingCert(false);
+    }
+  };
+
 
   const handleProjectSubmit = async (projectId: string) => {
     if (!links[projectId]) return;
@@ -168,13 +220,31 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ courseI
                 <span className="text-sm" style={{ color: "var(--text-secondary)" }}>{pct}% complete</span>
               </div>
             </div>
-            {!completedLessons.includes(activeLesson?.id ?? "") ? (
-              <Button onClick={handleMarkComplete} className="gap-2">
-                <CheckCircle2 className="w-4 h-4" /> Mark Complete
+            <div className="flex items-center gap-2">
+              {!completedLessons.includes(activeLesson?.id ?? "") ? (
+                <Button onClick={handleMarkComplete} disabled={markingComplete} className="gap-2">
+                  {markingComplete ? (
+                    <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving…</>
+                  ) : (
+                    <><CheckCircle2 className="w-4 h-4" /> Mark Complete</>
+                  )}
+                </Button>
+              ) : (
+                <Badge variant="success" className="gap-1 px-3 py-1.5"><CheckCircle2 className="w-3.5 h-3.5" /> Completed</Badge>
+              )}
+              {/* Test button — visible always for easy cert testing */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleTestCertificate}
+                disabled={generatingCert}
+                className="gap-1.5 text-xs border-yellow-400 text-yellow-600 hover:bg-yellow-50"
+                title="Generate certificate now (for testing)"
+              >
+                <Award className="w-3.5 h-3.5" />
+                {generatingCert ? "Generating…" : "Get Certificate"}
               </Button>
-            ) : (
-              <Badge variant="success" className="gap-1 px-3 py-1.5"><CheckCircle2 className="w-3.5 h-3.5" /> Completed</Badge>
-            )}
+            </div>
           </div>
         </div>
 
