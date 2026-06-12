@@ -38,7 +38,7 @@ const staggerContainer = {
 export default function TeacherOverview() {
   const { user } = useAuth();
   const [courses, setCourses] = useState<any[]>([]);
-  const [whatsappNumber, setWhatsappNumber] = useState("9347008039");
+  const [whatsappNumber, setWhatsappNumber] = useState("+919347008039");
 
   useEffect(() => {
     getSiteSettings().then((settings) => {

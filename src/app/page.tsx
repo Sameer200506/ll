@@ -157,9 +157,9 @@ export default function LandingPage() {
 
   // CMS Settings Bindings
   const logoUrl = siteSettings?.logoUrl || "/assets/mainlogo.png";
-  const whatsappNumber = siteSettings?.whatsappNumber || "9347008039";
+  const whatsappNumber = siteSettings?.whatsappNumber || "+919347008039";
   const contactEmail = siteSettings?.email || "jrcodecrafterz@gmail.com";
-  const contactPhone = siteSettings?.phone || "9347008039";
+  const contactPhone = siteSettings?.phone || "+919347008039";
   const contactWebsite = siteSettings?.website || "www.jrcodecrafterz.com";
   const heroTitle = siteSettings?.heroTitle || "Learn Coding Live From Experts";
   const heroTagline = siteSettings?.heroTagline || "Turning Young Minds Into Future-Ready Code Crafters";

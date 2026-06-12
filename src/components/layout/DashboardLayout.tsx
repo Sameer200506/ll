@@ -23,7 +23,7 @@ export function DashboardLayout({ children, title, description, allowedRoles, by
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [enrollmentStatus, setEnrollmentStatus] = useState<"loading" | "none" | "pending" | "approved">("loading");
-  const [whatsappNumber, setWhatsappNumber] = useState("9347008039");
+  const [whatsappNumber, setWhatsappNumber] = useState("+919347008039");
   const [pendingCourseTitle, setPendingCourseTitle] = useState("");
 
   useEffect(() => {

@@ -79,9 +79,9 @@ export default function AdminPage() {
 
   // CMS / Settings
   const [logoUrl, setLogoUrl] = useState("");
-  const [whatsappNumber, setWhatsappNumber] = useState("9347008039");
+  const [whatsappNumber, setWhatsappNumber] = useState("+919347008039");
   const [email, setEmail] = useState("jrcodecrafterz@gmail.com");
-  const [phone, setPhone] = useState("9347008039");
+  const [phone, setPhone] = useState("+919347008039");
   const [website, setWebsite] = useState("www.jrcodecrafterz.com");
   const [heroTitle, setHeroTitle] = useState("Learn Coding Live From Experts");
   const [heroTagline, setHeroTagline] = useState("Turning Young Minds Into Future-Ready Code Crafters");
@@ -164,9 +164,9 @@ export default function AdminPage() {
       const settings = await getSiteSettings();
       if (settings) {
         setLogoUrl(settings.logoUrl || "");
-        setWhatsappNumber(settings.whatsappNumber || "9347008039");
+        setWhatsappNumber(settings.whatsappNumber || "+919347008039");
         setEmail(settings.email || "jrcodecrafterz@gmail.com");
-        setPhone(settings.phone || "9347008039");
+        setPhone(settings.phone || "+919347008039");
         setWebsite(settings.website || "www.jrcodecrafterz.com");
         setHeroTitle(settings.heroTitle || "Learn Coding Live From Experts");
         setHeroTagline(settings.heroTagline || "Turning Young Minds Into Future-Ready Code Crafters");
@@ -1634,7 +1634,7 @@ export default function AdminPage() {
                                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Contact Phone</label>
                                  <input
                                    type="text"
-                                   placeholder="9347008039"
+                                   placeholder="+919347008039"
                                    value={phone}
                                    onChange={(e) => setPhone(e.target.value)}
                                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-semibold"

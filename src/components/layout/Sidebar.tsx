@@ -58,7 +58,7 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
   const { user, logout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
-  const [whatsappNumber, setWhatsappNumber] = useState("9347008039");
+  const [whatsappNumber, setWhatsappNumber] = useState("+919347008039");
 
   useEffect(() => {
     getSiteSettings().then((settings) => {
