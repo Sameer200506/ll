@@ -482,3 +482,34 @@ export async function getSiteSettings() {
 export async function updateSiteSettings(data: any) {
   await setDoc(doc(db, "settings", "site"), data, { merge: true });
 }
+
+// ─── EXTENDED CONTROLS ────────────────────────────────────────────────────────
+
+export async function getAllLessons() {
+  const snap = await getDocs(collection(db, "lessons"));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as any[];
+}
+
+export async function getAllAttendance() {
+  const snap = await getDocs(collection(db, "attendance"));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as any[];
+}
+
+export async function getProgressByStudent(userId: string) {
+  const q = query(collection(db, "progress"), where("userId", "==", userId));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as any[];
+}
+
+export async function getAttendanceByStudent(studentId: string) {
+  const q = query(collection(db, "attendance"), where("studentId", "==", studentId));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as any[];
+}
+
+export async function getAllProgress() {
+  const snap = await getDocs(collection(db, "progress"));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as any[];
+}
+
+

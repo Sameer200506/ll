@@ -62,8 +62,8 @@ const BLANK_QUESTION: Question = { question: "", options: ["", "", "", ""], corr
 
 function QuizBuilder({
   courseId,
-  targetLessonId,       // the lesson this quiz is placed after
-  initial,              // pre-filled data when editing
+  targetLessonId,
+  initial,
   onSave,
   onCancel,
   saving,
@@ -113,7 +113,7 @@ function QuizBuilder({
         {questions.map((q, qi) => (
           <div
             key={qi}
-            className="p-4 rounded-xl border"
+            className="p-4 rounded-xl border animate-in fade-in duration-200"
             style={{ background: "var(--surface-2)", borderColor: "var(--border)" }}
           >
             <div className="flex items-center justify-between mb-3">
@@ -183,9 +183,9 @@ function QuizBuilder({
   );
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
+// ─── Main Admin Page ─────────────────────────────────────────────────────────
 
-export default function CourseDetailPage({ params }: { params: Promise<{ courseId: string }> }) {
+export default function AdminCourseDetailPage({ params }: { params: Promise<{ courseId: string }> }) {
   const { user } = useAuth();
   const [courseId, setCourseId] = useState("");
 
@@ -220,8 +220,8 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
 
   // quiz dialog state
   const [quizDialogOpen, setQuizDialogOpen] = useState(false);
-  const [quizTargetLessonId, setQuizTargetLessonId] = useState<string | null>(null); // lesson AFTER which quiz is placed
-  const [editingQuiz, setEditingQuiz] = useState<any | null>(null); // null = new quiz
+  const [quizTargetLessonId, setQuizTargetLessonId] = useState<string | null>(null);
+  const [editingQuiz, setEditingQuiz] = useState<any | null>(null);
   const [savingQuiz, setSavingQuiz] = useState(false);
 
   // resource dialog
@@ -249,7 +249,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
         courseId: courseId,
         courseName: course.title,
         completionDate: new Date().toISOString().split("T")[0],
-        issuedBy: user?.name || "Teacher",
+        issuedBy: "Administrator",
       });
       toast.success(`Certificate ${certNumber} generated!`);
       const certs = await getAllCertificates();
@@ -426,20 +426,13 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
     finally { setSavingSettings(false); }
   };
 
-  // ── Build interleaved curriculum list ──
-  // Each entry is either { type: "lesson", data } or { type: "quiz", data }
-  // Quizzes appear AFTER the lesson with lessonId == quiz.lessonId.
-  // Quizzes with null/none lessonId appear at the very end (course-level).
-
   const buildCurriculum = () => {
     const items: { type: "lesson" | "quiz"; data: any }[] = [];
     for (const lesson of lessons) {
       items.push({ type: "lesson", data: lesson });
-      // quizzes that belong after this lesson
       const afterThis = quizzes.filter((q) => q.lessonId === lesson.id);
       afterThis.forEach((q) => items.push({ type: "quiz", data: q }));
     }
-    // course-level quizzes (no lessonId or lessonId="none"/null) at the end
     const courseLevelQuizzes = quizzes.filter((q) => !q.lessonId || q.lessonId === "none");
     courseLevelQuizzes.forEach((q) => items.push({ type: "quiz", data: q }));
     return items;
@@ -448,12 +441,10 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
   const curriculum = buildCurriculum();
   const totalItems = lessons.length + quizzes.length;
 
-  // ─────────────────────────────────────────────────────────────────────────────
-
   return (
-    <DashboardLayout title={course?.title ?? "Course Editor"} description="Manage all aspects of your course.">
-      <Link href="/dashboard/teacher/courses" className="inline-flex items-center gap-2 mb-6 text-sm hover:underline" style={{ color: "var(--text-secondary)" }}>
-        <ArrowLeft className="w-4 h-4" /> Back to Courses
+    <DashboardLayout title={course?.title ?? "Course Editor (Admin)"} description="Manage all aspects of this course." allowedRoles={["admin"]}>
+      <Link href="/admin" className="inline-flex items-center gap-2 mb-6 text-sm hover:underline" style={{ color: "var(--text-secondary)" }}>
+        <ArrowLeft className="w-4 h-4" /> Back to Admin Panel
       </Link>
 
       {/* Hero banner */}
@@ -467,6 +458,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
               <span className="text-xs text-white/70">{lessons.length} lesson{lessons.length !== 1 ? "s" : ""}</span>
               <span className="text-xs text-white/70">{quizzes.length} quiz{quizzes.length !== 1 ? "zes" : ""}</span>
               <span className="text-xs text-white/70">{students.length} student{students.length !== 1 ? "s" : ""}</span>
+              <Badge variant="secondary" className="bg-orange-500 text-white font-semibold">Admin Mode</Badge>
             </div>
           </div>
         </div>
@@ -474,7 +466,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
 
       {/* Quiz builder dialog */}
       <Dialog open={quizDialogOpen} onOpenChange={(v) => { if (!v) { setQuizDialogOpen(false); setEditingQuiz(null); } }}>
-        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto bg-white p-6 rounded-2xl shadow-xl">
           <DialogHeader>
             <DialogTitle>{editingQuiz ? "Edit Quiz" : "Add Quiz"}</DialogTitle>
           </DialogHeader>
@@ -511,7 +503,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
           </TabsTrigger>
         </TabsList>
 
-        {/* ══════════════════ CURRICULUM TAB ══════════════════ */}
+        {/* CURRICULUM TAB */}
         <TabsContent value="curriculum">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-semibold">
@@ -520,14 +512,14 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
                 ({lessons.length} lesson{lessons.length !== 1 ? "s" : ""} · {quizzes.length} quiz{quizzes.length !== 1 ? "zes" : ""})
               </span>
             </h2>
-            <Button className="gap-2" onClick={() => setLessonOpen(true)}>
+            <Button className="gap-2 bg-orange-500 hover:bg-orange-600 text-white font-bold" onClick={() => setLessonOpen(true)}>
               <Plus className="w-4 h-4" /> Add Lesson
             </Button>
           </div>
 
           {/* Add lesson dialog */}
           <Dialog open={lessonOpen} onOpenChange={setLessonOpen}>
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-w-md bg-white p-6 rounded-2xl shadow-xl">
               <DialogHeader><DialogTitle>Add New Lesson</DialogTitle></DialogHeader>
               <form onSubmit={handleAddLesson} className="space-y-4 mt-2">
                 <div className="space-y-1.5">
@@ -537,7 +529,6 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
                 <div className="space-y-1.5">
                   <Label>Video / Resource URL *</Label>
                   <Input placeholder="YouTube, Google Drive, or any link…" value={lessonForm.url} onChange={(e) => setLessonForm({ ...lessonForm, url: e.target.value })} required />
-                  <p className="text-xs" style={{ color: "var(--text-secondary)" }}>Paste any URL — YouTube, Drive, Vimeo, Loom, etc.</p>
                 </div>
                 {lessonForm.url && getYtThumb(lessonForm.url) && (
                   <img src={getYtThumb(lessonForm.url)!} alt="preview" className="rounded-xl w-full" />
@@ -550,7 +541,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
                   <Label>Lesson PDF URL (Optional)</Label>
                   <Input placeholder="Link to PDF document (Google Drive, Dropbox, etc.)" value={lessonForm.pdfUrl} onChange={(e) => setLessonForm({ ...lessonForm, pdfUrl: e.target.value })} />
                 </div>
-                <Button type="submit" className="w-full" disabled={addingLesson}>{addingLesson ? "Adding…" : "Add Lesson"}</Button>
+                <Button type="submit" className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold" disabled={addingLesson}>{addingLesson ? "Adding…" : "Add Lesson"}</Button>
               </form>
             </DialogContent>
           </Dialog>
@@ -560,18 +551,17 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
           ) : lessons.length === 0 && quizzes.length === 0 ? (
             <Card>
               <CardContent className="pt-6 text-center py-16">
-                <PlayCircle className="w-12 h-12 mx-auto mb-3" style={{ color: "var(--text-secondary)" }} />
+                <PlayCircle className="w-12 h-12 mx-auto mb-3 text-slate-300" />
                 <h3 className="font-semibold mb-2">No content yet</h3>
-                <p className="text-sm mb-5" style={{ color: "var(--text-secondary)" }}>Add lessons and quizzes to build your curriculum.</p>
+                <p className="text-sm mb-5 text-slate-400">Add lessons and quizzes to build your curriculum.</p>
                 <div className="flex gap-3 justify-center">
-                  <Button onClick={() => setLessonOpen(true)} className="gap-2"><Plus className="w-4 h-4" /> Add Lesson</Button>
+                  <Button onClick={() => setLessonOpen(true)} className="gap-2 bg-orange-500 hover:bg-orange-600 text-white font-bold"><Plus className="w-4 h-4" /> Add Lesson</Button>
                   <Button variant="outline" onClick={() => openNewQuiz(null)} className="gap-2"><ClipboardList className="w-4 h-4" /> Add Quiz</Button>
                 </div>
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-2">
-              {/* "Add quiz at top" — before any lessons */}
+            <div className="space-y-2 text-left">
               {lessons.length > 0 && (
                 <AddQuizButton label="Add quiz at start" onClick={() => openNewQuiz(null)} />
               )}
@@ -617,35 +607,30 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
                           </div>
                         ) : (
                           <div className="flex items-center gap-3 p-4">
-                            {/* Reorder */}
                             <div className="flex flex-col gap-0.5 flex-shrink-0">
                               <button onClick={() => handleMoveLesson(lessonIdx, -1)} disabled={lessonIdx === 0} className="p-0.5 rounded opacity-40 hover:opacity-100 transition disabled:opacity-20"><ChevronUp className="w-4 h-4" /></button>
                               <button onClick={() => handleMoveLesson(lessonIdx, 1)} disabled={lessonIdx === lessons.length - 1} className="p-0.5 rounded opacity-40 hover:opacity-100 transition disabled:opacity-20"><ChevronDown className="w-4 h-4" /></button>
                             </div>
-                            {/* Index badge */}
                             <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold" style={{ background: "var(--accent)22", color: "var(--accent)" }}>
                               {lessonIdx + 1}
                             </div>
-                            {/* Thumbnail */}
                             {thumb ? (
                               <img src={thumb} alt="" className="w-20 h-12 object-cover rounded-lg flex-shrink-0" />
                             ) : (
                               <div className="w-20 h-12 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "var(--surface-2)" }}>
-                                <Link2 className="w-5 h-5 opacity-40" style={{ color: "var(--accent)" }} />
+                                <Link2 className="w-5 h-5 opacity-40" />
                               </div>
                             )}
-                            {/* Info */}
                             <div className="flex-1 min-w-0">
                               <p className="font-medium truncate">{lesson.title}</p>
-                              <p className="text-xs truncate mt-0.5" style={{ color: "var(--text-secondary)" }}>{lesson.youtubeUrl}</p>
-                              {lesson.description && <p className="text-xs mt-1 line-clamp-1" style={{ color: "var(--text-secondary)" }}>{lesson.description}</p>}
+                              <p className="text-xs truncate mt-0.5 text-slate-400">{lesson.youtubeUrl}</p>
+                              {lesson.description && <p className="text-xs mt-1 text-slate-500 line-clamp-1">{lesson.description}</p>}
                               {lesson.pdfUrl && (
-                                <a href={lesson.pdfUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 mt-1.5 text-[10px] bg-orange-50 text-orange-600 px-2 py-0.5 rounded-md border border-orange-200/40 hover:bg-orange-100 transition-colors font-semibold">
-                                  <FileText className="w-3 h-3" /> PDF Material
+                                <a href={lesson.pdfUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 mt-1.5 text-[10px] bg-orange-50 text-orange-650 px-2 py-0.5 rounded-md border border-orange-200/40 hover:bg-orange-100 transition-colors font-semibold">
+                                  <FileText className="w-3 h-3 text-orange-500" /> PDF Material
                                 </a>
                               )}
                             </div>
-                            {/* Actions */}
                             <div className="flex items-center gap-1 flex-shrink-0">
                               <a href={lesson.youtubeUrl} target="_blank" rel="noopener noreferrer">
                                 <Button variant="ghost" size="icon" className="h-8 w-8"><ExternalLink className="w-4 h-4" /></Button>
@@ -653,26 +638,23 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
                               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingLessonId(lesson.id); setEditLessonForm({ title: lesson.title, url: lesson.youtubeUrl ?? "", description: lesson.description ?? "", pdfUrl: lesson.pdfUrl ?? "" }); }}>
                                 <Pencil className="w-4 h-4" />
                               </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeleteLesson(lesson.id, lesson.title)} style={{ color: "var(--danger)" }}>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:bg-red-50" onClick={() => handleDeleteLesson(lesson.id, lesson.title)}>
                                 <Trash2 className="w-4 h-4" />
                               </Button>
                             </div>
                           </div>
                         )}
                       </div>
-
-                      {/* ↓ Add quiz AFTER this lesson */}
                       <AddQuizButton label={`Add quiz after "${lesson.title}"`} onClick={() => openNewQuiz(lesson.id)} />
                     </div>
                   );
                 }
 
-                // ── Quiz card ──
                 const quiz = item.data;
                 return (
                   <div
                     key={`quiz-${quiz.id}`}
-                    className="flex items-center gap-3 p-4 rounded-2xl border transition-all duration-200"
+                    className="flex items-center gap-3 p-4 rounded-2xl border transition-all duration-200 text-left"
                     style={{ background: "var(--surface)", borderColor: "var(--border)", borderLeft: "3px solid var(--accent)" }}
                   >
                     <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "var(--accent)22" }}>
@@ -683,7 +665,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
                         <p className="font-medium truncate">{quiz.title}</p>
                         <Badge variant="secondary" className="text-xs flex-shrink-0">Quiz</Badge>
                       </div>
-                      <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                      <p className="text-xs mt-0.5 text-slate-400">
                         {quiz.questions?.length ?? 0} question{(quiz.questions?.length ?? 0) !== 1 ? "s" : ""}
                       </p>
                     </div>
@@ -691,7 +673,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditQuiz(quiz)}>
                         <Pencil className="w-4 h-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeleteQuiz(quiz.id, quiz.title)} style={{ color: "var(--danger)" }}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:bg-red-50" onClick={() => handleDeleteQuiz(quiz.id, quiz.title)}>
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
@@ -702,15 +684,15 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
           )}
         </TabsContent>
 
-        {/* ══════════════════ RESOURCES TAB ══════════════════ */}
+        {/* RESOURCES TAB */}
         <TabsContent value="resources">
           <div className="flex items-center justify-between mb-4">
-            <div>
+            <div className="text-left">
               <h2 className="text-base font-semibold">Course Resources</h2>
-              <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>Attach PDFs, slides, docs, or any link for students.</p>
+              <p className="text-sm mt-0.5 text-slate-400">Attach PDFs, slides, docs, or any link for students.</p>
             </div>
             <Dialog open={resOpen} onOpenChange={setResOpen}>
-              <DialogContent className="max-w-md">
+              <DialogContent className="max-w-md bg-white p-6 rounded-2xl shadow-xl">
                 <DialogHeader><DialogTitle>Add Resource</DialogTitle></DialogHeader>
                 <form onSubmit={handleAddResource} className="space-y-4 mt-2">
                   <div className="space-y-1.5">
@@ -730,10 +712,10 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
                       </SelectContent>
                     </Select>
                   </div>
-                  <Button type="submit" className="w-full" disabled={addingRes}>{addingRes ? "Adding…" : "Add Resource"}</Button>
+                  <Button type="submit" className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold" disabled={addingRes}>{addingRes ? "Adding…" : "Add Resource"}</Button>
                 </form>
               </DialogContent>
-              <Button className="gap-2" onClick={() => setResOpen(true)}><Plus className="w-4 h-4" /> Add Resource</Button>
+              <Button className="gap-2 bg-orange-500 hover:bg-orange-600 text-white font-bold" onClick={() => setResOpen(true)}><Plus className="w-4 h-4" /> Add Resource</Button>
             </Dialog>
           </div>
 
@@ -742,14 +724,14 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
           ) : resources.length === 0 ? (
             <Card>
               <CardContent className="pt-6 text-center py-16">
-                <Link2 className="w-12 h-12 mx-auto mb-3" style={{ color: "var(--text-secondary)" }} />
+                <Link2 className="w-12 h-12 mx-auto mb-3 text-slate-300" />
                 <h3 className="font-semibold mb-2">No resources yet</h3>
-                <p className="text-sm mb-5" style={{ color: "var(--text-secondary)" }}>Add PDFs, slide decks, notes, or any useful link.</p>
-                <Button onClick={() => setResOpen(true)} className="gap-2"><Plus className="w-4 h-4" /> Add Resource</Button>
+                <p className="text-sm mb-5 text-slate-405">Add PDFs, slide decks, notes, or any useful link.</p>
+                <Button onClick={() => setResOpen(true)} className="gap-2 bg-orange-500 hover:bg-orange-600 text-white font-bold"><Plus className="w-4 h-4" /> Add Resource</Button>
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3 text-left">
               {resources.map((res: any) => (
                 <div key={res.id} className="flex items-center gap-4 p-4 rounded-2xl border" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "var(--accent)22" }}>
@@ -757,14 +739,14 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{res.name}</p>
-                    <p className="text-xs truncate mt-0.5" style={{ color: "var(--text-secondary)" }}>{res.url}</p>
+                    <p className="text-xs truncate mt-0.5 text-slate-400">{res.url}</p>
                   </div>
                   <Badge variant="secondary" className="capitalize flex-shrink-0">{res.type}</Badge>
                   <div className="flex items-center gap-1 flex-shrink-0">
                     <a href={res.url} target="_blank" rel="noopener noreferrer">
                       <Button variant="ghost" size="icon" className="h-8 w-8"><ExternalLink className="w-4 h-4" /></Button>
                     </a>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeleteResource(res.id, res.name)} style={{ color: "var(--danger)" }}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:bg-red-50" onClick={() => handleDeleteResource(res.id, res.name)}>
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
@@ -774,11 +756,11 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
           )}
         </TabsContent>
 
-        {/* ══════════════════ SETTINGS TAB ══════════════════ */}
+        {/* SETTINGS TAB */}
         <TabsContent value="settings">
-          <div className="max-w-xl">
+          <div className="max-w-xl text-left">
             <h2 className="text-base font-semibold mb-1">Course Settings</h2>
-            <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>Edit your course details — changes are reflected immediately.</p>
+            <p className="text-sm mb-6 text-slate-450">Edit details for this course as administrator.</p>
             <form onSubmit={handleSaveSettings} className="space-y-5">
               <div className="space-y-1.5">
                 <Label>Course Title *</Label>
@@ -807,31 +789,31 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
                 <Label>Live Class Replay / Recorded Video URL</Label>
                 <Input placeholder="https://… (YouTube or Drive link for live recordings)" value={settingsForm.replayUrl} onChange={(e) => setSettingsForm({ ...settingsForm, replayUrl: e.target.value })} />
               </div>
-              <Button type="submit" className="gap-2" disabled={savingSettings}>
+              <Button type="submit" className="gap-2 bg-orange-500 hover:bg-orange-600 text-white font-bold" disabled={savingSettings}>
                 {settingsSaved ? <><Check className="w-4 h-4" /> Saved!</> : <><Save className="w-4 h-4" /> {savingSettings ? "Saving…" : "Save Changes"}</>}
               </Button>
             </form>
           </div>
         </TabsContent>
 
-        {/* ══════════════════ STUDENTS TAB ══════════════════ */}
+        {/* STUDENTS TAB */}
         <TabsContent value="students">
-          <div className="mb-4">
+          <div className="mb-4 text-left">
             <h2 className="text-base font-semibold">{students.length} Enrolled Student{students.length !== 1 ? "s" : ""}</h2>
-            <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>Students who have enrolled in this course.</p>
+            <p className="text-sm mt-0.5 text-slate-400">Students who have enrolled in this course.</p>
           </div>
           {loading ? (
             <div className="space-y-3">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-16 rounded-2xl" />)}</div>
           ) : students.length === 0 ? (
             <Card>
               <CardContent className="pt-6 text-center py-16">
-                <Users className="w-12 h-12 mx-auto mb-3" style={{ color: "var(--text-secondary)" }} />
+                <Users className="w-12 h-12 mx-auto mb-3 text-slate-300" />
                 <h3 className="font-semibold mb-2">No students enrolled yet</h3>
-                <p className="text-sm" style={{ color: "var(--text-secondary)" }}>Share your course to start getting enrollments.</p>
+                <p className="text-sm text-slate-400">This course currently has no active student enrollments.</p>
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3 text-left">
               {students.map((s: any) => {
                 const studentCert = certificates.find((c: any) => c.studentId === s.id);
                 return (
@@ -841,11 +823,11 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">{s.name}</p>
-                      <p className="text-xs truncate mt-0.5" style={{ color: "var(--text-secondary)" }}>{s.email}</p>
+                      <p className="text-xs truncate mt-0.5 text-slate-400">{s.email}</p>
                     </div>
                     <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
                       {s.purchasedAt && (
-                        <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                        <span className="text-xs text-slate-400">
                           Enrolled {new Date(s.purchasedAt).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" })}
                         </span>
                       )}
@@ -872,22 +854,21 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
           )}
         </TabsContent>
 
-        {/* ══════════════════ PROJECTS TAB ══════════════════ */}
+        {/* PROJECTS TAB */}
         <TabsContent value="projects">
           <div className="flex items-center justify-between mb-4">
-            <div>
+            <div className="text-left">
               <h2 className="text-base font-semibold">Student Projects</h2>
-              <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>Assign specific projects to enrolled students and grade their submissions.</p>
+              <p className="text-sm mt-0.5 text-slate-400">Assign specific projects to enrolled students and grade their submissions.</p>
             </div>
             <Dialog open={projOpen} onOpenChange={setProjOpen}>
-              <DialogContent className="max-w-md">
+              <DialogContent className="max-w-md bg-white p-6 rounded-2xl shadow-xl">
                 <DialogHeader><DialogTitle>Assign New Project</DialogTitle></DialogHeader>
                 <form onSubmit={async (e) => {
                   e.preventDefault();
-                  if (!user) return;
                   setAssigningProj(true);
                   try {
-                    await assignProject({ courseId, teacherId: user.id, studentId: projForm.studentId, title: projForm.title, description: projForm.description });
+                    await assignProject({ courseId, teacherId: course?.teacherId || user?.id || "admin", studentId: projForm.studentId, title: projForm.title, description: projForm.description });
                     toast.success("Project assigned!");
                     setProjOpen(false);
                     setProjForm({ studentId: "", title: "", description: "" });
@@ -912,19 +893,19 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
                     <Label>Description / Instructions *</Label>
                     <Textarea placeholder="Explain what the student needs to do..." value={projForm.description} onChange={(e) => setProjForm({ ...projForm, description: e.target.value })} required rows={4} />
                   </div>
-                  <Button type="submit" className="w-full" disabled={assigningProj || !projForm.studentId}>{assigningProj ? "Assigning..." : "Assign Project"}</Button>
+                  <Button type="submit" className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold" disabled={assigningProj || !projForm.studentId}>{assigningProj ? "Assigning..." : "Assign Project"}</Button>
                 </form>
               </DialogContent>
-              <Button className="gap-2" onClick={() => setProjOpen(true)}><FolderPlus className="w-4 h-4" /> Assign Project</Button>
+              <Button className="gap-2 bg-orange-500 hover:bg-orange-600 text-white font-bold" onClick={() => setProjOpen(true)}><FolderPlus className="w-4 h-4" /> Assign Project</Button>
             </Dialog>
 
             {/* Grading Dialog */}
             <Dialog open={gradingOpen} onOpenChange={setGradingOpen}>
-              <DialogContent className="max-w-md">
+              <DialogContent className="max-w-md bg-white p-6 rounded-2xl shadow-xl">
                 <DialogHeader><DialogTitle>Grade Project</DialogTitle></DialogHeader>
                 <form onSubmit={async (e) => {
                   e.preventDefault();
-                  if (!gradingIds || !user) return;
+                  if (!gradingIds) return;
                   setGradingInProgress(true);
                   try {
                     await gradeProject(gradingIds, { grade: parseInt(gradingForm.grade), feedback: gradingForm.feedback });
@@ -942,7 +923,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
                     <Label>Feedback (Optional)</Label>
                     <Textarea placeholder="Great job on..." value={gradingForm.feedback} onChange={(e) => setGradingForm({ ...gradingForm, feedback: e.target.value })} rows={3} />
                   </div>
-                  <Button type="submit" className="w-full" disabled={gradingInProgress}>{gradingInProgress ? "Saving..." : "Submit Grade"}</Button>
+                  <Button type="submit" className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold" disabled={gradingInProgress}>{gradingInProgress ? "Saving..." : "Submit Grade"}</Button>
                 </form>
               </DialogContent>
             </Dialog>
@@ -953,14 +934,14 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
           ) : projects.length === 0 ? (
             <Card>
               <CardContent className="pt-6 text-center py-16">
-                <FolderOpen className="w-12 h-12 mx-auto mb-3" style={{ color: "var(--text-secondary)" }} />
+                <FolderOpen className="w-12 h-12 mx-auto mb-3 text-slate-300" />
                 <h3 className="font-semibold mb-2">No projects assigned</h3>
-                <p className="text-sm mb-5" style={{ color: "var(--text-secondary)" }}>Give your students practical work to complete.</p>
-                <Button onClick={() => setProjOpen(true)} className="gap-2"><FolderPlus className="w-4 h-4" /> Assign Project</Button>
+                <p className="text-sm mb-5 text-slate-400">Give your students practical work to complete.</p>
+                <Button onClick={() => setProjOpen(true)} className="gap-2 bg-orange-500 hover:bg-orange-600 text-white font-bold"><FolderPlus className="w-4 h-4" /> Assign Project</Button>
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3 text-left">
               {projects.map((proj: any) => {
                 const student = students.find((s) => s.id === proj.studentId);
                 return (
@@ -968,7 +949,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <h3 className="font-semibold">{proj.title}</h3>
-                        <p className="text-xs mt-1 max-w-2xl" style={{ color: "var(--text-secondary)" }}>{proj.description}</p>
+                        <p className="text-xs mt-1 max-w-2xl text-slate-405">{proj.description}</p>
                         <p className="text-xs font-medium mt-3" style={{ color: "var(--accent)" }}>Assigned to: {student?.name || "Unknown Student"}</p>
                       </div>
                       <div className="flex-shrink-0">
@@ -981,18 +962,18 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
                     {proj.status !== "assigned" && (
                       <div className="mt-2 pt-3 border-t flex items-center justify-between" style={{ borderColor: "var(--border)" }}>
                         <div className="flex items-center gap-2">
-                          <Link2 className="w-4 h-4" style={{ color: "var(--text-secondary)" }} />
-                          <a href={proj.submissionLink} target="_blank" rel="noopener noreferrer" className="text-sm hover:underline" style={{ color: "var(--info)" }}>
+                          <Link2 className="w-4 h-4 text-slate-400" />
+                          <a href={proj.submissionLink} target="_blank" rel="noopener noreferrer" className="text-sm text-sky-600 hover:underline">
                             View Submission
                           </a>
                         </div>
                         {proj.status === "submitted" && (
-                          <Button size="sm" onClick={() => { setGradingIds(proj.id); setGradingForm({ grade: "", feedback: "" }); setGradingOpen(true); }}>
+                          <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white font-bold" onClick={() => { setGradingIds(proj.id); setGradingForm({ grade: "", feedback: "" }); setGradingOpen(true); }}>
                             Grade Now
                           </Button>
                         )}
                         {proj.status === "graded" && proj.feedback && (
-                          <span className="text-sm italic" style={{ color: "var(--text-secondary)" }}>"{proj.feedback}"</span>
+                          <span className="text-sm italic text-slate-400">"{proj.feedback}"</span>
                         )}
                       </div>
                     )}
@@ -1015,7 +996,7 @@ function AddQuizButton({ label, onClick }: { label: string; onClick: () => void 
       <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
       <button
         onClick={onClick}
-        className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all hover:opacity-100 opacity-50 hover:opacity-100 border"
+        className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all hover:opacity-100 opacity-50 border cursor-pointer"
         style={{ borderColor: "var(--accent)", color: "var(--accent)", background: "var(--accent)11" }}
         title={label}
       >

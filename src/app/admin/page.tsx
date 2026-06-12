@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { createUserWithEmailAndPassword, signOut as firebaseSignOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import {
@@ -25,24 +26,30 @@ import {
   createCertificate,
   getAllCertificates,
   deleteCertificate,
+  getAllSchedules,
+  getAllQuizzes,
+  getAllAttendance,
+  getAllLessons,
+  getAllProgress,
 } from "@/lib/firestore";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Users, BookOpen, ShoppingBag, BarChart3,
   Trash2, RefreshCw, Shield, GraduationCap,
   Search, LogOut, Activity, FileText, AlertTriangle,
   IndianRupee, ChevronDown, ChevronUp, Eye,
   Mail, Phone, MessageSquare, Calendar, Sparkles, Check, CheckCircle2, Clock, UserPlus,
-  Award, Plus, Pencil, Settings
+  Award, Plus, Pencil, Settings, ArrowLeft, ExternalLink
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 
-type Tab = "overview" | "leads" | "students" | "teachers" | "courses" | "enrollments" | "payments" | "cms" | "certificates";
+type Tab = "overview" | "leads" | "students" | "teachers" | "courses" | "enrollments" | "payments" | "cms" | "certificates" | "search";
 
 const ADMIN_PASSWORD = "admin123";
 
@@ -76,6 +83,11 @@ export default function AdminPage() {
   const [projects, setProjects] = useState<any[]>([]);
   const [leads, setLeads] = useState<any[]>([]);
   const [certificates, setCertificates] = useState<any[]>([]);
+  const [schedules, setSchedules] = useState<any[]>([]);
+  const [quizzes, setQuizzes] = useState<any[]>([]);
+  const [attendance, setAttendance] = useState<any[]>([]);
+  const [lessons, setLessons] = useState<any[]>([]);
+  const [progress, setProgress] = useState<any[]>([]);
 
   // CMS / Settings
   const [logoUrl, setLogoUrl] = useState("");
@@ -137,6 +149,11 @@ export default function AdminPage() {
   const [issuingCert, setIssuingCert] = useState(false);
   const [showTeacherPw, setShowTeacherPw] = useState(false);
 
+  // User Search States
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchRole, setSearchRole] = useState<"all" | "student" | "teacher">("all");
+  const [selectedUser, setSelectedUser] = useState<any | null>(null);
+
   const students = users.filter((u) => u.role === "student");
   const teachers = users.filter((u) => u.role === "teacher");
   const unreadLeadsCount = leads.filter((l) => l.status === "unread").length;
@@ -144,7 +161,7 @@ export default function AdminPage() {
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [u, c, e, qr, pr, ld, certs] = await Promise.all([
+      const [u, c, e, qr, pr, ld, certs, sch, qz, att, les, prog] = await Promise.all([
         getAllUsers(),
         getAllCourses(),
         getAllEnrollments(),
@@ -152,6 +169,11 @@ export default function AdminPage() {
         getAllProjects(),
         getAllLeads(),
         getAllCertificates(),
+        getAllSchedules(),
+        getAllQuizzes(),
+        getAllAttendance(),
+        getAllLessons(),
+        getAllProgress(),
       ]);
       setUsers(u as any[]);
       setCourses(c as any[]);
@@ -160,6 +182,11 @@ export default function AdminPage() {
       setProjects(pr as any[]);
       setLeads(ld as any[]);
       setCertificates(certs as any[]);
+      setSchedules(sch as any[]);
+      setQuizzes(qz as any[]);
+      setAttendance(att as any[]);
+      setLessons(les as any[]);
+      setProgress(prog as any[]);
       // Also load site settings
       const settings = await getSiteSettings();
       if (settings) {
@@ -448,6 +475,7 @@ export default function AdminPage() {
     { id: "enrollments", label: "Enrollments", icon: ShoppingBag, count: pendingEnrollments.length > 0 ? `Req: ${pendingEnrollments.length}` : approvedEnrollments.length, highlight: pendingEnrollments.length > 0 },
     { id: "payments", label: "Payments Logs", icon: IndianRupee },
     { id: "certificates", label: "Certificates", icon: Award, count: certificates.length },
+    { id: "search", label: "Search Profiles", icon: Search },
     { id: "cms", label: "CMS & Settings", icon: Activity },
   ];
 
@@ -1770,6 +1798,484 @@ export default function AdminPage() {
                           </div>
                         </CardContent>
                       </Card>
+                    </motion.div>
+                  )}
+
+                  {tab === "search" && (
+                    <motion.div variants={fadeInUp} className="space-y-6 text-left">
+                      {!selectedUser ? (
+                        <div className="space-y-4">
+                          <div>
+                            <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">User Profiles History</h2>
+                            <p className="text-xs text-slate-400 font-semibold mt-0.5">Search and inspect any student or teacher account, enrollment, quizzes, projects, and attendance.</p>
+                          </div>
+
+                          <Card className="border-slate-100 shadow-sm bg-white">
+                            <CardContent className="p-4 flex gap-3 flex-wrap items-center">
+                              <div className="flex-1 min-w-[240px] relative">
+                                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                <input
+                                  type="text"
+                                  placeholder="Search by name, email, or user ID..."
+                                  value={searchQuery}
+                                  onChange={(e) => setSearchQuery(e.target.value)}
+                                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:border-orange-500 text-slate-800"
+                                />
+                              </div>
+                              <select
+                                value={searchRole}
+                                onChange={(e) => setSearchRole(e.target.value as any)}
+                                className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:border-orange-500 bg-white text-slate-700"
+                              >
+                                <option value="all">All Roles</option>
+                                <option value="student">Students Only</option>
+                                <option value="teacher">Teachers Only</option>
+                              </select>
+                            </CardContent>
+                          </Card>
+
+                          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            {users
+                              .filter((u: any) => {
+                                const q = searchQuery.toLowerCase().trim();
+                                const matchesSearch =
+                                  !q ||
+                                  u.name?.toLowerCase().includes(q) ||
+                                  u.email?.toLowerCase().includes(q) ||
+                                  u.id?.toLowerCase().includes(q);
+                                const matchesRole =
+                                  searchRole === "all" || u.role === searchRole;
+                                return matchesSearch && matchesRole;
+                              })
+                              .slice(0, 48)
+                              .map((u: any) => {
+                                const isStudent = u.role === "student";
+                                return (
+                                  <Card
+                                    key={u.id}
+                                    onClick={() => setSelectedUser(u)}
+                                    className="border-slate-100 card-hover bg-white cursor-pointer"
+                                  >
+                                    <CardContent className="p-4 flex items-center gap-3">
+                                      <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-bold text-sm text-white bg-gradient-to-br from-orange-400 to-orange-600 shadow-md">
+                                        {(u.name?.[0] ?? "?").toUpperCase()}
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-2">
+                                          <p className="font-bold text-slate-900 truncate text-sm">{u.name}</p>
+                                          <Badge className={`text-[8px] font-black px-1.5 py-0.5 uppercase tracking-wide flex-shrink-0 ${isStudent ? "bg-indigo-50 text-indigo-700 border border-indigo-150" : "bg-emerald-50 text-emerald-700 border border-emerald-150"}`}>
+                                            {u.role}
+                                          </Badge>
+                                        </div>
+                                        <p className="text-[10px] text-slate-400 font-bold truncate mt-0.5">{u.email}</p>
+                                      </div>
+                                    </CardContent>
+                                  </Card>
+                                );
+                              })}
+                            {users.length === 0 && (
+                              <div className="col-span-full text-center py-16 border rounded-3xl bg-white shadow-sm">
+                                <p className="text-sm font-semibold text-slate-400">No matching user profiles found</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-6">
+                          {/* Details Header */}
+                          <Card className="border-slate-100 shadow-sm bg-white">
+                            <CardContent className="p-5 flex items-center gap-4">
+                              <button
+                                onClick={() => setSelectedUser(null)}
+                                className="w-10 h-10 rounded-xl bg-slate-50 text-slate-600 border border-slate-150 flex items-center justify-center hover:bg-slate-100 transition-colors flex-shrink-0 cursor-pointer"
+                                title="Back to User List"
+                              >
+                                <ArrowLeft className="w-5 h-5" />
+                              </button>
+                              <div className="min-w-0 flex-1 text-left">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <h2 className="text-lg font-extrabold text-slate-900 leading-tight">{selectedUser.name}</h2>
+                                  <Badge className={`text-[9px] font-black px-2 py-0.5 uppercase tracking-wider ${selectedUser.role === "student" ? "bg-indigo-100 text-indigo-800 border-indigo-200" : "bg-emerald-100 text-emerald-800 border-emerald-200"}`}>
+                                    {selectedUser.role}
+                                  </Badge>
+                                </div>
+                                <p className="text-[10px] text-slate-400 font-bold mt-1">
+                                  Email: <span className="text-slate-650">{selectedUser.email}</span> · User ID: <span className="text-slate-600 font-mono">{selectedUser.id}</span>
+                                </p>
+                              </div>
+                            </CardContent>
+                          </Card>
+
+                          {/* Profile Overview columns */}
+                          <div className="grid lg:grid-cols-3 gap-6 items-start">
+                            {/* Left Column - Card Summary */}
+                            <div className="space-y-4">
+                              <Card className="border-slate-100 shadow-sm bg-white">
+                                <CardContent className="p-6">
+                                  <div className="flex flex-col items-center text-center">
+                                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center font-black text-lg text-white bg-gradient-to-br from-orange-400 to-orange-600 shadow-md mb-3">
+                                      {(selectedUser.name?.[0] ?? "?").toUpperCase()}
+                                    </div>
+                                    <h3 className="font-extrabold text-slate-900 text-base">{selectedUser.name}</h3>
+                                    <p className="text-xs text-slate-400 font-semibold mt-0.5">{selectedUser.email}</p>
+                                    <Badge variant="outline" className="mt-2.5 font-bold px-2 py-0.5 text-[10px] text-slate-500 bg-slate-50 border-slate-200">
+                                      UID: {selectedUser.id}
+                                    </Badge>
+                                  </div>
+
+                                  <div className="border-t border-slate-100 mt-6 pt-5 space-y-4 text-xs font-semibold text-slate-600">
+                                    {selectedUser.role === "student" ? (
+                                      <>
+                                        <div className="flex justify-between">
+                                          <span className="text-slate-400 uppercase tracking-wider text-[10px] font-bold">Enrolled Courses:</span>
+                                          <span className="text-slate-800 font-extrabold">{enrollments.filter((e) => e.userId === selectedUser.id).length}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                          <span className="text-slate-400 uppercase tracking-wider text-[10px] font-bold">Quizzes Taken:</span>
+                                          <span className="text-slate-800 font-extrabold">{quizResults.filter((r) => r.userId === selectedUser.id).length}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                          <span className="text-slate-400 uppercase tracking-wider text-[10px] font-bold">Projects Submitted:</span>
+                                          <span className="text-slate-800 font-extrabold">{projects.filter((p) => p.studentId === selectedUser.id && p.status !== "assigned").length}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                          <span className="text-slate-400 uppercase tracking-wider text-[10px] font-bold">Attendance Logged:</span>
+                                          <span className="text-slate-800 font-extrabold">{attendance.filter((a) => a.studentId === selectedUser.id).length}</span>
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <div className="flex justify-between">
+                                          <span className="text-slate-400 uppercase tracking-wider text-[10px] font-bold">Courses Teaching:</span>
+                                          <span className="text-slate-800 font-extrabold">{courses.filter((c) => c.teacherId === selectedUser.id).length}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                          <span className="text-slate-400 uppercase tracking-wider text-[10px] font-bold">Schedules (Live):</span>
+                                          <span className="text-slate-800 font-extrabold">{schedules.filter((s) => s.teacherId === selectedUser.id).length}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                          <span className="text-slate-400 uppercase tracking-wider text-[10px] font-bold">Quizzes Created:</span>
+                                          <span className="text-slate-800 font-extrabold">
+                                            {quizzes.filter((q) => {
+                                              const c = courses.find((crs) => crs.id === q.courseId);
+                                              return c && c.teacherId === selectedUser.id;
+                                            }).length}
+                                          </span>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            </div>
+
+                            {/* Right Column - User History details */}
+                            <div className="lg:col-span-2">
+                              {selectedUser.role === "student" ? (
+                                <Tabs defaultValue="courses" className="w-full">
+                                  <TabsList className="bg-slate-100 p-1 rounded-xl w-full grid grid-cols-4">
+                                    <TabsTrigger value="courses" className="rounded-lg text-xs font-bold py-2">Courses</TabsTrigger>
+                                    <TabsTrigger value="quizzes" className="rounded-lg text-xs font-bold py-2">Quizzes</TabsTrigger>
+                                    <TabsTrigger value="projects" className="rounded-lg text-xs font-bold py-2">Projects</TabsTrigger>
+                                    <TabsTrigger value="attendance" className="rounded-lg text-xs font-bold py-2">Attendance</TabsTrigger>
+                                  </TabsList>
+
+                                  {/* Student Courses Tab */}
+                                  <TabsContent value="courses" className="space-y-3 mt-4 text-left">
+                                    {enrollments.filter((e) => e.userId === selectedUser.id).length === 0 ? (
+                                      <p className="text-xs text-slate-400 text-center py-8 font-semibold">No courses enrolled</p>
+                                    ) : (
+                                      enrollments
+                                        .filter((e) => e.userId === selectedUser.id)
+                                        .map((e) => {
+                                          const c = courses.find((crs) => crs.id === e.courseId);
+                                          if (!c) return null;
+                                          const courseLessons = lessons.filter((l) => l.courseId === c.id);
+                                          const progressDoc = progress.find((p) => p.id === `${selectedUser.id}_${c.id}`);
+                                          const completedCount = progressDoc ? (progressDoc.completedLessons || []).length : 0;
+                                          const progressPercent = courseLessons.length > 0 ? Math.round((completedCount / courseLessons.length) * 100) : 0;
+
+                                          return (
+                                            <Card key={e.id} className="border-slate-100 bg-white">
+                                              <CardContent className="p-4">
+                                                <div className="flex items-center justify-between mb-2">
+                                                  <div>
+                                                    <p className="text-sm font-bold text-slate-900">{c.title}</p>
+                                                    <p className="text-[10px] text-slate-400 font-bold mt-0.5">by {c.teacherName || "JRCODECRAFTERZ"}</p>
+                                                  </div>
+                                                  <Badge className={`text-[8px] font-black uppercase ${e.status === "approved" ? "bg-green-50 text-green-700 border border-green-200" : "bg-yellow-50 text-yellow-700 border border-yellow-250 animate-pulse"}`}>
+                                                    {e.status}
+                                                  </Badge>
+                                                </div>
+                                                <div className="space-y-1 mt-3">
+                                                  <div className="flex justify-between text-[10px] font-bold text-slate-400">
+                                                    <span>Course Progress</span>
+                                                    <span>{completedCount} / {courseLessons.length} Lessons ({progressPercent}%)</span>
+                                                  </div>
+                                                  <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                                    <div className="bg-orange-500 h-full rounded-full transition-all duration-300" style={{ width: `${progressPercent}%` }} />
+                                                  </div>
+                                                </div>
+                                              </CardContent>
+                                            </Card>
+                                          );
+                                        })
+                                    )}
+                                  </TabsContent>
+
+                                  {/* Student Quizzes Tab */}
+                                  <TabsContent value="quizzes" className="space-y-3 mt-4 text-left">
+                                    {quizResults.filter((r) => r.userId === selectedUser.id).length === 0 ? (
+                                      <p className="text-xs text-slate-400 text-center py-8 font-semibold">No quizzes taken yet</p>
+                                    ) : (
+                                      quizResults
+                                        .filter((r) => r.userId === selectedUser.id)
+                                        .map((r) => {
+                                          const q = quizzes.find((qz) => qz.id === r.quizId);
+                                          const c = courses.find((crs) => crs.id === r.courseId);
+                                          return (
+                                            <Card key={r.id} className="border-slate-100 bg-white">
+                                              <CardContent className="p-4 flex items-center justify-between gap-4">
+                                                <div className="min-w-0 flex-1">
+                                                  <p className="text-sm font-bold text-slate-900 truncate">{q?.title || "Quiz Submission"}</p>
+                                                  <p className="text-[10px] text-slate-400 font-bold mt-0.5 truncate">Course: {c?.title || "Unknown Course"}</p>
+                                                  <p className="text-[9px] text-slate-400 font-semibold mt-1">Submitted: {format(new Date(r.submittedAt), "dd MMM yyyy, hh:mm a")}</p>
+                                                </div>
+                                                <Badge className="bg-orange-50 text-orange-600 border border-orange-200/50 hover:bg-orange-50 font-black text-xs px-2.5 py-1">
+                                                  Score: {r.score} / {r.totalQuestions}
+                                                </Badge>
+                                              </CardContent>
+                                            </Card>
+                                          );
+                                        })
+                                    )}
+                                  </TabsContent>
+
+                                  {/* Student Projects Tab */}
+                                  <TabsContent value="projects" className="space-y-3 mt-4 text-left">
+                                    {projects.filter((p) => p.studentId === selectedUser.id).length === 0 ? (
+                                      <p className="text-xs text-slate-400 text-center py-8 font-semibold">No projects assigned</p>
+                                    ) : (
+                                      projects
+                                        .filter((p) => p.studentId === selectedUser.id)
+                                        .map((p) => {
+                                          const c = courses.find((crs) => crs.id === p.courseId);
+                                          return (
+                                            <Card key={p.id} className="border-slate-100 bg-white">
+                                              <CardContent className="p-4 space-y-3">
+                                                <div className="flex items-start justify-between gap-4">
+                                                  <div>
+                                                    <p className="text-sm font-bold text-slate-900">{p.title}</p>
+                                                    <p className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">{p.description}</p>
+                                                    <p className="text-[10px] text-slate-400 font-bold mt-2">Course: {c?.title || "Unknown Course"}</p>
+                                                  </div>
+                                                  <Badge className={`text-[8px] font-black uppercase flex-shrink-0 ${p.status === "graded" ? "bg-green-50 text-green-700 border border-green-200" : p.status === "submitted" ? "bg-blue-50 text-blue-700 border border-blue-200" : "bg-slate-100 text-slate-500 border border-slate-200"}`}>
+                                                    {p.status}
+                                                  </Badge>
+                                                </div>
+
+                                                {p.submissionLink && (
+                                                  <div className="pt-2 border-t flex flex-col gap-1.5 text-[11px] font-semibold text-slate-500">
+                                                    <div className="flex items-center gap-1.5">
+                                                      <ExternalLink className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                                                      <span className="text-slate-400">Submission URL:</span>
+                                                      <a href={p.submissionLink} target="_blank" rel="noopener noreferrer" className="text-sky-600 hover:underline truncate max-w-sm">{p.submissionLink}</a>
+                                                    </div>
+                                                    {p.status === "graded" && (
+                                                      <div className="p-2 rounded-lg bg-slate-50 mt-1 flex flex-col gap-1">
+                                                        <div className="flex justify-between">
+                                                          <span className="text-[10px] font-bold text-slate-400 uppercase">Grade:</span>
+                                                          <Badge variant={p.grade >= 70 ? "success" : p.grade >= 40 ? "warning" : "danger"} className="text-[9px] font-black px-1.5 py-0">{p.grade} / 100</Badge>
+                                                        </div>
+                                                        {p.feedback && <p className="text-[10px] text-slate-600 italic mt-0.5">"{p.feedback}"</p>}
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                )}
+                                              </CardContent>
+                                            </Card>
+                                          );
+                                        })
+                                    )}
+                                  </TabsContent>
+
+                                  {/* Student Attendance Tab */}
+                                  <TabsContent value="attendance" className="space-y-3 mt-4 text-left">
+                                    {attendance.filter((a) => a.studentId === selectedUser.id).length === 0 ? (
+                                      <p className="text-xs text-slate-400 text-center py-8 font-semibold">No attendance logged yet</p>
+                                    ) : (
+                                      attendance
+                                        .filter((a) => a.studentId === selectedUser.id)
+                                        .map((a) => {
+                                          const c = courses.find((crs) => crs.id === a.courseId);
+                                          const isPresent = a.status === "present";
+                                          return (
+                                            <Card key={a.id} className="border-slate-100 bg-white">
+                                              <CardContent className="p-4 flex items-center justify-between gap-4">
+                                                <div className="min-w-0 flex-1">
+                                                  <p className="text-sm font-bold text-slate-900 truncate">Course: {c?.title || "Unknown Course"}</p>
+                                                  <p className="text-[9px] text-slate-400 font-bold mt-1">Class Date: {a.date}</p>
+                                                </div>
+                                                <Badge className={`text-[9px] font-black uppercase px-2 py-0.5 flex-shrink-0 ${isPresent ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
+                                                  {a.status}
+                                                </Badge>
+                                              </CardContent>
+                                            </Card>
+                                          );
+                                        })
+                                    )}
+                                  </TabsContent>
+                                </Tabs>
+                              ) : (
+                                <Tabs defaultValue="courses" className="w-full">
+                                  <TabsList className="bg-slate-100 p-1 rounded-xl w-full grid grid-cols-4">
+                                    <TabsTrigger value="courses" className="rounded-lg text-xs font-bold py-2">Courses</TabsTrigger>
+                                    <TabsTrigger value="live-classes" className="rounded-lg text-xs font-bold py-2">Live Classes</TabsTrigger>
+                                    <TabsTrigger value="quizzes" className="rounded-lg text-xs font-bold py-2">Quizzes</TabsTrigger>
+                                    <TabsTrigger value="projects" className="rounded-lg text-xs font-bold py-2">Projects</TabsTrigger>
+                                  </TabsList>
+
+                                  {/* Teacher Courses Tab */}
+                                  <TabsContent value="courses" className="space-y-3 mt-4 text-left">
+                                    {courses.filter((c) => c.teacherId === selectedUser.id).length === 0 ? (
+                                      <p className="text-xs text-slate-400 text-center py-8 font-semibold">No courses created</p>
+                                    ) : (
+                                      courses
+                                        .filter((c) => c.teacherId === selectedUser.id)
+                                        .map((c) => {
+                                          const enrollCount = enrollments.filter((e) => e.courseId === c.id).length;
+                                          return (
+                                            <Card key={c.id} className="border-slate-100 bg-white">
+                                              <CardContent className="p-4 flex items-center justify-between gap-4">
+                                                <div>
+                                                  <p className="text-sm font-bold text-slate-900">{c.title}</p>
+                                                  <p className="text-[10px] text-slate-400 font-bold mt-0.5">Category: {c.category || "Classes 1–12"} · Enrolled: {enrollCount} students</p>
+                                                  <p className="text-[9px] text-slate-400 font-semibold mt-1">Price: {c.price === 0 ? "Free" : `₹${c.price}`}</p>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                  <Badge className={`text-[8px] font-black uppercase ${c.published !== false ? "bg-green-50 text-green-700 border border-green-200" : "bg-slate-100 text-slate-500 border border-slate-200"}`}>
+                                                    {c.published !== false ? "Published" : "Draft"}
+                                                  </Badge>
+                                                  <Link
+                                                    href={`/admin/courses/${c.id}`}
+                                                    className="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 border border-orange-100/50 flex items-center justify-center hover:bg-orange-100 transition-colors flex-shrink-0 cursor-pointer"
+                                                    title="Manage Content"
+                                                  >
+                                                    <BookOpen className="w-3.5 h-3.5" />
+                                                  </Link>
+                                                </div>
+                                              </CardContent>
+                                            </Card>
+                                          );
+                                        })
+                                    )}
+                                  </TabsContent>
+
+                                  {/* Teacher Live Classes (Schedules) Tab */}
+                                  <TabsContent value="live-classes" className="space-y-3 mt-4 text-left">
+                                    {schedules.filter((s) => s.teacherId === selectedUser.id).length === 0 ? (
+                                      <p className="text-xs text-slate-400 text-center py-8 font-semibold">No live classes scheduled</p>
+                                    ) : (
+                                      schedules
+                                        .filter((s) => s.teacherId === selectedUser.id)
+                                        .map((s) => {
+                                          const c = courses.find((crs) => crs.id === s.courseId);
+                                          return (
+                                            <Card key={s.id} className="border-slate-100 bg-white">
+                                              <CardContent className="p-4 flex items-center justify-between gap-4">
+                                                <div className="min-w-0 flex-1">
+                                                  <p className="text-sm font-bold text-slate-900 truncate">{s.title}</p>
+                                                  <p className="text-[10px] text-slate-400 font-bold mt-0.5 truncate">Course: {c?.title || "Unknown Course"}</p>
+                                                  <p className="text-[9px] text-slate-400 font-bold mt-1">Schedule: {s.date} @ {s.time}</p>
+                                                </div>
+                                                {s.meetLink && (
+                                                  <a href={s.meetLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 text-orange-600 border border-orange-200/50 rounded-xl text-xs font-bold hover:bg-orange-100 transition-colors flex-shrink-0">
+                                                    Join Meet <ExternalLink className="w-3 h-3" />
+                                                  </a>
+                                                )}
+                                              </CardContent>
+                                            </Card>
+                                          );
+                                        })
+                                    )}
+                                  </TabsContent>
+
+                                  {/* Teacher Quizzes Tab */}
+                                  <TabsContent value="quizzes" className="space-y-3 mt-4 text-left">
+                                    {quizzes.filter((q) => {
+                                      const c = courses.find((crs) => crs.id === q.courseId);
+                                      return c && c.teacherId === selectedUser.id;
+                                    }).length === 0 ? (
+                                      <p className="text-xs text-slate-400 text-center py-8 font-semibold">No quizzes created</p>
+                                    ) : (
+                                      quizzes
+                                        .filter((q) => {
+                                          const c = courses.find((crs) => crs.id === q.courseId);
+                                          return c && c.teacherId === selectedUser.id;
+                                        })
+                                        .map((q) => {
+                                          const c = courses.find((crs) => crs.id === q.courseId);
+                                          return (
+                                            <Card key={q.id} className="border-slate-100 bg-white">
+                                              <CardContent className="p-4 flex items-center justify-between gap-4">
+                                                <div>
+                                                  <p className="text-sm font-bold text-slate-900">{q.title}</p>
+                                                  <p className="text-[10px] text-slate-405 font-bold mt-0.5">Course: {c?.title || "Unknown Course"}</p>
+                                                  <p className="text-[9px] text-slate-400 font-semibold mt-1">Questions: {q.questions?.length ?? 0}</p>
+                                                </div>
+                                              </CardContent>
+                                            </Card>
+                                          );
+                                        })
+                                    )}
+                                  </TabsContent>
+
+                                  {/* Teacher Projects Tab */}
+                                  <TabsContent value="projects" className="space-y-3 mt-4 text-left">
+                                    {projects.filter((p) => {
+                                      const c = courses.find((crs) => crs.id === p.courseId);
+                                      return c && c.teacherId === selectedUser.id;
+                                    }).length === 0 ? (
+                                      <p className="text-xs text-slate-400 text-center py-8 font-semibold">No student projects assigned</p>
+                                    ) : (
+                                      projects
+                                        .filter((p) => {
+                                          const c = courses.find((crs) => crs.id === p.courseId);
+                                          return c && c.teacherId === selectedUser.id;
+                                        })
+                                        .map((p) => {
+                                          const c = courses.find((crs) => crs.id === p.courseId);
+                                          const student = users.find((u) => u.id === p.studentId);
+                                          return (
+                                            <Card key={p.id} className="border-slate-100 bg-white">
+                                              <CardContent className="p-4">
+                                                <div className="flex items-start justify-between gap-4 mb-2">
+                                                  <div>
+                                                    <p className="text-sm font-bold text-slate-900">{p.title}</p>
+                                                    <p className="text-[10px] text-slate-400 font-bold mt-0.5">Student: {student?.name || "Unknown Student"} · Course: {c?.title || "Unknown Course"}</p>
+                                                  </div>
+                                                  <Badge className={`text-[8px] font-black uppercase ${p.status === "graded" ? "bg-green-50 text-green-700 border border-green-200" : p.status === "submitted" ? "bg-blue-50 text-blue-700 border border-blue-200" : "bg-slate-100 text-slate-500 border border-slate-200"}`}>
+                                                    {p.status}
+                                                  </Badge>
+                                                </div>
+                                                {p.status === "graded" && (
+                                                  <div className="mt-2 p-2 bg-slate-50 rounded-lg text-[10px] font-bold text-slate-500 flex justify-between">
+                                                    <span>Grade: {p.grade}/100</span>
+                                                    {p.feedback && <span className="italic">"{p.feedback}"</span>}
+                                                  </div>
+                                                )}
+                                              </CardContent>
+                                            </Card>
+                                          );
+                                        })
+                                    )}
+                                  </TabsContent>
+                                </Tabs>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </motion.div>
                   )}
                 </>

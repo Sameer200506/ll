@@ -224,6 +224,17 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ courseI
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {activeLesson?.pdfUrl && (
+                <a
+                  href={activeLesson.pdfUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-orange-50 text-orange-655 border border-orange-200/50 hover:bg-orange-100 transition-colors shadow-sm cursor-pointer"
+                >
+                  <FileText className="w-3.5 h-3.5 text-orange-500" />
+                  <span>Download Lesson PDF</span>
+                </a>
+              )}
               {!completedLessons.includes(activeLesson?.id ?? "") ? (
                 <Button onClick={handleMarkComplete} disabled={markingComplete} className="gap-2">
                   {markingComplete ? (
