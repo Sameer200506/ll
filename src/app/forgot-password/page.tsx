@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import { getUserByEmail } from "@/lib/firestore";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +25,15 @@ export default function ForgotPasswordPage() {
 
     setLoading(true);
     try {
-      await sendPasswordResetEmail(auth, email);
+      // Check user role before sending the password reset email
+      const userDoc = await getUserByEmail(email.trim().toLowerCase());
+      if (userDoc && userDoc.role !== "student") {
+        toast.error("Password reset is not available for teacher or staff accounts. Please contact an administrator.");
+        setLoading(false);
+        return;
+      }
+
+      await sendPasswordResetEmail(auth, email.trim());
       toast.success("Password reset link sent to your email!");
       setSent(true);
       startCooldown();

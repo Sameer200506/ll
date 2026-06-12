@@ -1108,6 +1108,13 @@ export default function AdminPage() {
                                   <Badge className="bg-orange-50 text-orange-600 border border-orange-200/50 hover:bg-orange-50 font-bold px-3 text-xs flex-shrink-0">
                                     {c.price === 0 ? "Free" : `₹${c.price}`}
                                   </Badge>
+                                  <Link
+                                    href={`/admin/courses/${c.id}`}
+                                    className="w-9 h-9 rounded-xl bg-orange-50 text-orange-600 border border-orange-100/50 flex items-center justify-center hover:bg-orange-100 transition-colors flex-shrink-0 cursor-pointer"
+                                    title="Manage Course Curriculum"
+                                  >
+                                    <BookOpen className="w-4 h-4" />
+                                  </Link>
                                   <button
                                     onClick={() => {
                                       setEditingCourse(c);
