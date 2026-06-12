@@ -134,7 +134,7 @@ export default function LandingPage() {
   const [studentName, setStudentName] = useState("");
   const [parentPhone, setParentPhone] = useState("");
   const [studentGrade, setStudentGrade] = useState("Grade 1 - 3");
-  const [selectedPlan, setSelectedPlan] = useState("Basic Level");
+  const [selectedPlan, setSelectedPlan] = useState("Personal 1 to 1");
 
   useEffect(() => {
     (async () => {
@@ -211,7 +211,7 @@ export default function LandingPage() {
   // Pricing Plans Bindings
   const pricingPlansData = siteSettings?.pricingPlans || [
     {
-      title: "Basic Level",
+      title: "Personal 1 to 1",
       price: "2,330",
       billing: " / session",
       desc: "Designed for learners seeking maximum, dedicated 1:1 teacher support.",
@@ -219,7 +219,7 @@ export default function LandingPage() {
       isFeatured: false
     },
     {
-      title: "Advanced Level",
+      title: "Mini Group Session",
       price: "1,835",
       billing: " / session",
       desc: "Our most collaborative setup. Peer interactions keep learners driven and engaged.",
@@ -227,7 +227,7 @@ export default function LandingPage() {
       isFeatured: true
     },
     {
-      title: "Professional Level",
+      title: "Micro Group Session",
       price: "950",
       billing: " / session",
       desc: "Affordable, high-energy sessions designed for peer group coding challenges.",
@@ -1420,9 +1420,9 @@ export default function LandingPage() {
                     onChange={(e) => setSelectedPlan(e.target.value)}
                     className="w-full px-3 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-medium bg-white transition-colors"
                   >
-                    <option>Basic (1:1)</option>
-                    <option>Advanced (Group of 4)</option>
-                    <option>Professional (Group of 6)</option>
+                    <option>Personal 1 to 1</option>
+                    <option>Mini Group Session</option>
+                    <option>Micro Group Session</option>
                   </select>
                 </div>
               </div>
