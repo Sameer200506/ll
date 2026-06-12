@@ -135,6 +135,8 @@ export default function LandingPage() {
   const [parentPhone, setParentPhone] = useState("");
   const [studentGrade, setStudentGrade] = useState("Grade 1 - 3");
   const [selectedPlan, setSelectedPlan] = useState("Personal 1 to 1");
+  const [selectedCourse, setSelectedCourse] = useState("Classes 1–12 (Regular Coding)");
+  const [formSubmitted, setFormSubmitted] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -332,12 +334,12 @@ export default function LandingPage() {
         phone: parentPhone,
         grade: studentGrade,
         plan: selectedPlan,
+        course: selectedCourse,
         email: "",
-        message: `Book Trial Demo for ${studentGrade} - Preferred Plan: ${selectedPlan}`
+        message: `Book Trial Demo for ${studentGrade} - Preferred Plan: ${selectedPlan} - Course: ${selectedCourse}`
       });
-      toast.success("Demo request saved! Opening Google Form to schedule your live slot...");
-      const googleFormUrl = `https://docs.google.com/forms/d/e/1FAIpQLSdNMukdxlM8ODQMOHJO0-H-4SyzvQQFzwA83vjmZpzu1qQ0Sw/viewform?usp=sharing&ouid=112466381519385676445`;
-      window.open(googleFormUrl, "_blank");
+      toast.success("Demo request registered successfully!");
+      setFormSubmitted(true);
     } catch {
       toast.error("Failed to submit request, please try again.");
     }
@@ -1375,67 +1377,126 @@ export default function LandingPage() {
             <h3 className="text-xl font-bold text-slate-900 mb-2">Book Your Free Live Demo</h3>
             <p className="text-slate-500 text-xs font-semibold mb-6">Confirm details to claim a free 1-on-1 private coding consultation.</p>
 
-            <form onSubmit={handleContactSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-655 uppercase mb-1.5">Student Name</label>
-                <input
-                  type="text"
-                  placeholder="Enter student's full name"
-                  value={studentName}
-                  onChange={(e) => setStudentName(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-medium transition-colors"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-655 uppercase mb-1.5">Parent Phone Number</label>
-                <input
-                  type="tel"
-                  placeholder="Enter contact number"
-                  value={parentPhone}
-                  onChange={(e) => setParentPhone(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-medium transition-colors"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
+            {!formSubmitted ? (
+              <form onSubmit={handleContactSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-655 uppercase mb-1.5">Grade Level</label>
-                  <select
-                    value={studentGrade}
-                    onChange={(e) => setStudentGrade(e.target.value)}
-                    className="w-full px-3 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-medium bg-white transition-colors"
-                  >
-                    <option>Grade 1 - 3</option>
-                    <option>Grade 4 - 6</option>
-                    <option>Grade 7 - 9</option>
-                    <option>Grade 10 - 12</option>
-                  </select>
+                  <label className="block text-xs font-bold text-slate-655 uppercase mb-1.5">Student Name</label>
+                  <input
+                    type="text"
+                    placeholder="Enter student's full name"
+                    value={studentName}
+                    onChange={(e) => setStudentName(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-medium transition-colors"
+                  />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-655 uppercase mb-1.5">Preferred Setup</label>
+                  <label className="block text-xs font-bold text-slate-655 uppercase mb-1.5">Parent Phone Number</label>
+                  <input
+                    type="tel"
+                    placeholder="Enter contact number"
+                    value={parentPhone}
+                    onChange={(e) => setParentPhone(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-medium transition-colors"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-655 uppercase mb-1.5">Grade Level</label>
+                    <select
+                      value={studentGrade}
+                      onChange={(e) => setStudentGrade(e.target.value)}
+                      className="w-full px-3 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-medium bg-white transition-colors"
+                    >
+                      <option>Grade 1 - 3</option>
+                      <option>Grade 4 - 6</option>
+                      <option>Grade 7 - 9</option>
+                      <option>Grade 10 - 12</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-655 uppercase mb-1.5">Preferred Setup</label>
+                    <select
+                      value={selectedPlan}
+                      onChange={(e) => setSelectedPlan(e.target.value)}
+                      className="w-full px-3 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-medium bg-white transition-colors"
+                    >
+                      <option>Personal 1 to 1</option>
+                      <option>Mini Group Session</option>
+                      <option>Micro Group Session</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-655 uppercase mb-1.5">Course / Specialization</label>
                   <select
-                    value={selectedPlan}
-                    onChange={(e) => setSelectedPlan(e.target.value)}
+                    value={selectedCourse}
+                    onChange={(e) => setSelectedCourse(e.target.value)}
                     className="w-full px-3 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-medium bg-white transition-colors"
                   >
-                    <option>Personal 1 to 1</option>
-                    <option>Mini Group Session</option>
-                    <option>Micro Group Session</option>
+                    <option>Regular Coding (Classes 1-12)</option>
+                    <option>Computer Basics</option>
+                    <option>MS Office</option>
+                    <option>AI Tools</option>
+                    <option>Math Basics</option>
+                    <option>Projects</option>
                   </select>
                 </div>
-              </div>
 
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  className="w-full py-4 rounded-2xl bg-orange-500 hover:bg-orange-600 text-white font-extrabold text-sm shadow-xl shadow-orange-500/25 transition-all transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer text-center"
-                >
-                  Request Free Demo Session
-                </button>
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    className="w-full py-4 rounded-2xl bg-orange-500 hover:bg-orange-600 text-white font-extrabold text-sm shadow-xl shadow-orange-500/25 transition-all transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer text-center"
+                  >
+                    Request Free Demo Session
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="text-center py-6 space-y-6 animate-fade-in text-slate-800">
+                <div className="mx-auto w-14 h-14 rounded-full flex items-center justify-center bg-green-50 border border-green-200 text-green-500">
+                  <Check className="w-8 h-8" />
+                </div>
+                <div>
+                  <h4 className="text-lg font-bold text-slate-900">Demo Request Submitted!</h4>
+                  <p className="text-xs text-slate-500 mt-1.5 leading-relaxed max-w-xs mx-auto">
+                    Hi <strong>{studentName}</strong>, your request has been registered. Click the button below to connect with us on WhatsApp to schedule your free demo slot.
+                  </p>
+                </div>
+                <div className="space-y-3 pt-2">
+                  <a
+                    href={`https://wa.me/919347008039?text=${encodeURIComponent(
+                      `Hello JRCODECRAFTERZ! I've just requested a free coding demo session. Here are my details:\n\n` +
+                      `- *Student Name*: ${studentName}\n` +
+                      `- *Parent Phone*: ${parentPhone}\n` +
+                      `- *Grade Level*: ${studentGrade}\n` +
+                      `- *Preferred Setup*: ${selectedPlan}\n` +
+                      `- *Course Selected*: ${selectedCourse}\n\n` +
+                      `Please let me know the available time slots for our demo class!`
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-sm shadow-xl shadow-emerald-500/25 transition-all transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer text-center flex items-center justify-center gap-2"
+                  >
+                    <MessageSquare className="w-4 h-4 text-white" />
+                    <span>Connect on WhatsApp</span>
+                  </a>
+                  <button
+                    onClick={() => {
+                      setFormSubmitted(false);
+                      setStudentName("");
+                      setParentPhone("");
+                    }}
+                    className="text-xs font-bold text-slate-400 hover:text-slate-600 hover:underline cursor-pointer"
+                  >
+                    Submit another request
+                  </button>
+                </div>
               </div>
-            </form>
+            )}
 
             <div className="mt-4 border-t border-slate-100 pt-4 flex flex-col items-center">
               <span className="text-[11px] text-slate-500 font-semibold mb-2">Prefer registering directly via Google Forms?</span>

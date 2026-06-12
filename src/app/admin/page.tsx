@@ -725,7 +725,7 @@ export default function AdminPage() {
                       </div>
 
                       <div className="grid gap-4">
-                        {filterBy(leads, ["name", "phone", "grade", "plan", "message"]).map((lead: any) => (
+                        {filterBy(leads, ["name", "phone", "grade", "plan", "course", "message"]).map((lead: any) => (
                           <Card key={lead.id} className={`border-slate-100 overflow-hidden relative text-left bg-white ${lead.status === "unread" ? "border-l-4 border-l-orange-500" : ""}`}>
                             <CardContent className="p-6">
                               <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
@@ -734,6 +734,9 @@ export default function AdminPage() {
                                     <h3 className="font-bold text-slate-950 text-base">{lead.name}</h3>
                                     <Badge className="bg-slate-100 text-slate-600 border border-slate-200/40 text-[9px] font-bold uppercase">{lead.grade || "Grade 4 - 6"}</Badge>
                                     <Badge className="bg-orange-50 text-orange-600 border border-orange-200/40 text-[9px] font-bold uppercase">{lead.plan || "Basic Setup"}</Badge>
+                                    {lead.course && (
+                                      <Badge className="bg-blue-50 text-blue-600 border border-blue-200/40 text-[9px] font-bold uppercase">{lead.course}</Badge>
+                                    )}
                                   </div>
                                   
                                   <div className="flex flex-wrap gap-4 text-xs font-semibold text-slate-400">
