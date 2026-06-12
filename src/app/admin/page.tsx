@@ -70,8 +70,23 @@ const staggerContainer = {
 };
 
 export default function AdminPage() {
-  const [authed, setAuthed] = useState(false);
+  const [authed, setAuthed] = useState(() => {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem("admin_authed") === "true";
+    }
+    return false;
+  });
   const [pw, setPw] = useState("");
+
+  const handleAdminAuth = () => {
+    if (pw === ADMIN_PASSWORD) {
+      setAuthed(true);
+      sessionStorage.setItem("admin_authed", "true");
+    } else {
+      toast.error("Wrong password");
+    }
+  };
+
   const [tab, setTab] = useState<Tab>("overview");
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -513,12 +528,12 @@ export default function AdminPage() {
               placeholder="Enter admin password"
               value={pw}
               onChange={(e) => setPw(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && (pw === ADMIN_PASSWORD ? setAuthed(true) : toast.error("Wrong password"))}
+              onKeyDown={(e) => e.key === "Enter" && handleAdminAuth()}
               className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm outline-none focus:border-orange-500 text-slate-800 font-semibold"
             />
             <Button
               className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl shadow-lg"
-              onClick={() => pw === ADMIN_PASSWORD ? setAuthed(true) : toast.error("Wrong password")}
+              onClick={handleAdminAuth}
             >
               Access Admin Panel
             </Button>
@@ -581,7 +596,10 @@ export default function AdminPage() {
             <RefreshCw className="w-4 h-4" /> Refresh Firestore Data
           </button>
           <button
-            onClick={() => setAuthed(false)}
+            onClick={() => {
+              sessionStorage.removeItem("admin_authed");
+              setAuthed(false);
+            }}
             className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold w-full text-red-500 hover:opacity-80 transition-opacity cursor-pointer"
           >
             <LogOut className="w-4 h-4" /> Exit Admin Gate

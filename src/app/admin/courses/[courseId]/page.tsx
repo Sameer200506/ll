@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +25,7 @@ import {
   Pencil, ChevronUp, ChevronDown, Link2, FileText,
   Settings, Users, Save, Check, X,
   Play, File, Globe, Presentation,
-  ClipboardList, CheckCircle2, BookOpen, FolderOpen, Send, FolderPlus
+  ClipboardList, CheckCircle2, BookOpen, FolderOpen, Send, FolderPlus, Shield
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -187,7 +187,20 @@ function QuizBuilder({
 
 export default function AdminCourseDetailPage({ params }: { params: Promise<{ courseId: string }> }) {
   const { user } = useAuth();
+  const router = useRouter();
+  const [authed, setAuthed] = useState(false);
   const [courseId, setCourseId] = useState("");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const isAuthed = sessionStorage.getItem("admin_authed") === "true";
+      setAuthed(isAuthed);
+      if (!isAuthed) {
+        toast.error("Unauthorized access. Please login first.");
+        router.push("/admin");
+      }
+    }
+  }, [router]);
 
   const [course, setCourse] = useState<any>(null);
   const [lessons, setLessons] = useState<any[]>([]);
@@ -441,11 +454,57 @@ export default function AdminCourseDetailPage({ params }: { params: Promise<{ co
   const curriculum = buildCurriculum();
   const totalItems = lessons.length + quizzes.length;
 
+  if (!authed) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50/50">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 rounded-full border-2 border-t-transparent animate-spin border-orange-500" />
+          <p className="text-sm font-semibold text-slate-500">Verifying authorization...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <DashboardLayout title={course?.title ?? "Course Editor (Admin)"} description="Manage all aspects of this course." allowedRoles={["admin"]}>
-      <Link href="/admin" className="inline-flex items-center gap-2 mb-6 text-sm hover:underline" style={{ color: "var(--text-secondary)" }}>
-        <ArrowLeft className="w-4 h-4" /> Back to Admin Panel
-      </Link>
+    <div className="min-h-screen bg-slate-50/50 text-slate-800 flex">
+      {/* Admin Sidebar */}
+      <aside className="w-64 h-screen fixed left-0 top-0 z-40 flex flex-col border-r border-slate-100 bg-white">
+        <div className="flex items-center gap-3 px-5 py-6 border-b border-slate-100">
+          <div className="w-9 h-9 rounded-xl bg-orange-500 flex items-center justify-center text-white shadow-md">
+            <Shield className="w-5 h-5" />
+          </div>
+          <div className="text-left">
+            <span className="text-sm font-bold tracking-tight text-slate-900 leading-none">
+              JR<span className="text-orange-500 font-extrabold">CODE</span>CRAFTERZ
+            </span>
+            <p className="text-[8px] uppercase tracking-widest text-slate-400 font-bold mt-0.5">Control Center</p>
+          </div>
+        </div>
+        <div className="flex-1 px-3 mt-6">
+          <Link
+            href="/admin"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-all cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4" /> Back to Admin Panel
+          </Link>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 ml-64 min-h-screen p-8">
+        <div className="max-w-5xl mx-auto space-y-6">
+          <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+            <div>
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight">Course Curriculum Editor</h1>
+              <p className="text-xs text-slate-400 font-semibold mt-0.5">Edit lessons, quizzes, resources, projects, and metadata as administrator.</p>
+            </div>
+            <Link
+              href="/admin"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold hover:bg-slate-50 transition-colors shadow-sm"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" /> Back to Dashboard
+            </Link>
+          </div>
 
       {/* Hero banner */}
       {course && (
@@ -984,7 +1043,9 @@ export default function AdminCourseDetailPage({ params }: { params: Promise<{ co
           )}
         </TabsContent>
       </Tabs>
-    </DashboardLayout>
+        </div>
+      </main>
+    </div>
   );
 }
 
