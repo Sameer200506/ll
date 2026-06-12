@@ -425,13 +425,6 @@ export async function markNotificationRead(notificationId: string) {
 
 // ─── CERTIFICATES ─────────────────────────────────────────────────────────────
 
-/** Generate a unique certificate number like JRCC-2024-XXXXXX */
-function generateCertNumber(): string {
-  const year = new Date().getFullYear();
-  const rand = Math.random().toString(36).substring(2, 8).toUpperCase();
-  return `JRCC-${year}-${rand}`;
-}
-
 export async function createCertificate(data: {
   studentId: string;
   studentName: string;
@@ -441,10 +434,17 @@ export async function createCertificate(data: {
   completionDate: string;
   issuedBy?: string;
 }) {
-  const certNumber = generateCertNumber();
+  const settings = await getSiteSettings();
+  const prefix = settings?.certPrefix || "JRCC";
+  const year = new Date().getFullYear();
+  const rand = Math.random().toString(36).substring(2, 8).toUpperCase();
+  const cleanPrefix = prefix.endsWith("-") ? prefix : `${prefix}-`;
+  const certNumber = `${cleanPrefix}${year}-${rand}`;
+
   const ref = await addDoc(collection(db, "certificates"), {
     ...data,
     certNumber,
+    issuedBy: data.issuedBy || settings?.certSignature || "JR Code Crafterz",
     issuedAt: new Date().toISOString(),
   });
   return { id: ref.id, certNumber };

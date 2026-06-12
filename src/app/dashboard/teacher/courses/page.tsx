@@ -14,7 +14,7 @@ import { Plus, BookOpen, Users, PlayCircle, Pencil, ArrowRight, Settings2 } from
 import { toast } from "sonner";
 import Link from "next/link";
 
-const EMPTY_FORM = { title: "", description: "", thumbnailUrl: "", price: "0" };
+const EMPTY_FORM = { title: "", description: "", thumbnailUrl: "", price: "0", category: "Classes 1–12" };
 
 export default function TeacherCoursesPage() {
   const { user } = useAuth();
@@ -60,6 +60,7 @@ export default function TeacherCoursesPage() {
         description: createForm.description,
         thumbnailUrl: createForm.thumbnailUrl,
         price: parseFloat(createForm.price) || 0,
+        category: createForm.category || "Classes 1–12",
         teacherId: user!.id,
         teacherName: user!.name,
       });
@@ -84,6 +85,7 @@ export default function TeacherCoursesPage() {
       description: course.description ?? "",
       thumbnailUrl: course.thumbnailUrl ?? "",
       price: String(course.price ?? 0),
+      category: course.category ?? "Classes 1–12",
     });
     setEditOpen(true);
   };
@@ -98,6 +100,7 @@ export default function TeacherCoursesPage() {
         description: editForm.description,
         thumbnailUrl: editForm.thumbnailUrl,
         price: parseFloat(editForm.price) || 0,
+        category: editForm.category || "Classes 1–12",
       });
       toast.success("Course updated!");
       setEditOpen(false);
@@ -131,6 +134,21 @@ export default function TeacherCoursesPage() {
           onChange={(e) => setForm({ ...form, title: e.target.value })}
           required
         />
+      </div>
+      <div className="space-y-1.5">
+        <Label>Category *</Label>
+        <select
+          value={form.category}
+          onChange={(e) => setForm({ ...form, category: e.target.value })}
+          className="flex h-10 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-orange-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <option value="Classes 1–12">Classes 1–12</option>
+          <option value="Computer Basics">Computer Basics</option>
+          <option value="MS Office">MS Office</option>
+          <option value="AI Tools">AI Tools</option>
+          <option value="Math Basics">Math Basics</option>
+          <option value="Projects">Projects</option>
+        </select>
       </div>
       <div className="space-y-1.5">
         <Label>Description</Label>
@@ -221,7 +239,7 @@ export default function TeacherCoursesPage() {
               <Link href={`/dashboard/teacher/courses/${course.id}`}>
                 <Card className="card-hover cursor-pointer h-full flex flex-col">
                   <div
-                    className="h-40 rounded-t-2xl overflow-hidden flex items-center justify-center"
+                    className="h-40 rounded-t-2xl overflow-hidden flex items-center justify-center relative"
                     style={{ background: "linear-gradient(135deg, var(--surface-2), var(--accent)22)" }}
                   >
                     {course.thumbnailUrl ? (
@@ -229,6 +247,9 @@ export default function TeacherCoursesPage() {
                     ) : (
                       <PlayCircle className="w-12 h-12 opacity-30" style={{ color: "var(--accent)" }} />
                     )}
+                    <span className="absolute bottom-3 left-3 text-[10px] font-bold px-2 py-1 rounded-md bg-black/60 text-white backdrop-blur-sm">
+                      {course.category || "Classes 1–12"}
+                    </span>
                   </div>
                   <CardContent className="pt-4 flex-1 flex flex-col">
                     <h3 className="font-semibold text-base mb-1 line-clamp-2">{course.title}</h3>

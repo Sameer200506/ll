@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent } from "@/components/ui/card";
-import { getCourse, getLessonsByCourse, getProgress, markLessonComplete, isEnrolled, getProjectsByStudent, submitProject, createCertificate, getCertificatesByStudent } from "@/lib/firestore";
-import { CheckCircle2, Circle, PlayCircle, ArrowLeft, Lock, FolderOpen, Send, ExternalLink, Award } from "lucide-react";
+import { getCourse, getLessonsByCourse, getProgress, markLessonComplete, isEnrolled, getProjectsByStudent, submitProject, createCertificate, getCertificatesByStudent, getResourcesByCourse } from "@/lib/firestore";
+import { CheckCircle2, Circle, PlayCircle, ArrowLeft, Lock, FolderOpen, Send, ExternalLink, Award, FileText, Link2 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
@@ -27,6 +27,7 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ courseI
   const [lessons, setLessons] = useState<any[]>([]);
   const [completedLessons, setCompletedLessons] = useState<string[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
+  const [resources, setResources] = useState<any[]>([]);
   const [submittingIds, setSubmittingIds] = useState<Record<string, boolean>>({});
   const [links, setLinks] = useState<Record<string, string>>({});
   const [activeLesson, setActiveLesson] = useState<any>(null);
@@ -42,18 +43,20 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ courseI
   useEffect(() => {
     if (!courseId || !user) return;
     (async () => {
-      const [c, l, enr, prog, projs] = await Promise.all([
+      const [c, l, enr, prog, projs, res] = await Promise.all([
         getCourse(courseId),
         getLessonsByCourse(courseId),
         isEnrolled(user.id, courseId),
         getProgress(user.id, courseId),
         getProjectsByStudent(user.id, courseId),
+        getResourcesByCourse(courseId),
       ]);
       setCourse(c);
       setLessons(l);
       setEnrolled(enr);
       setCompletedLessons(prog);
       setProjects(projs);
+      setResources(res);
       if (l.length > 0) setActiveLesson(l[0]);
       setLoading(false);
     })();
@@ -251,12 +254,14 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ courseI
         {/* Sidebar */}
         <div className="w-80 flex flex-col flex-shrink-0">
           <Tabs defaultValue="lessons" className="flex-1 flex flex-col">
-            <TabsList className="w-full mb-2">
-              <TabsTrigger value="lessons" className="flex-1">Lessons</TabsTrigger>
-              <TabsTrigger value="projects" className="flex-1 relative">
+            <TabsList className="w-full mb-2 grid grid-cols-4 bg-slate-100 p-1 rounded-xl">
+              <TabsTrigger value="lessons" className="text-[11px] py-1.5 px-0.5 rounded-lg font-semibold">Lessons</TabsTrigger>
+              <TabsTrigger value="resources" className="text-[11px] py-1.5 px-0.5 rounded-lg font-semibold">Resources</TabsTrigger>
+              <TabsTrigger value="replays" className="text-[11px] py-1.5 px-0.5 rounded-lg font-semibold">Replays</TabsTrigger>
+              <TabsTrigger value="projects" className="text-[11px] py-1.5 px-0.5 rounded-lg font-semibold relative">
                 Projects
                 {projects.filter(p => p.status === "assigned").length > 0 && (
-                  <span className="absolute top-1.5 right-3 w-2 h-2 rounded-full bg-red-500" />
+                  <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-red-500" />
                 )}
               </TabsTrigger>
             </TabsList>
@@ -291,6 +296,92 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ courseI
                   );
                 })}
               </div>
+            </TabsContent>
+
+            <TabsContent value="resources" className="flex-1 overflow-y-auto mt-0 rounded-2xl border p-4" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+              <h3 className="font-semibold mb-3 text-sm uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
+                Learning Resources
+              </h3>
+              {course?.curriculumPdfUrl && (
+                <a
+                  href={course.curriculumPdfUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2.5 p-3 rounded-xl border border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100 transition-colors mb-4 text-xs font-bold"
+                >
+                  <FileText className="w-4 h-4 text-orange-500 flex-shrink-0" />
+                  <span>Download Curriculum PDF</span>
+                </a>
+              )}
+              {resources.length === 0 ? (
+                <p className="text-xs text-center py-6" style={{ color: "var(--text-secondary)" }}>
+                  No extra resources posted yet.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {resources.map((res: any) => (
+                    <a
+                      key={res.id}
+                      href={res.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 p-3 rounded-xl border hover:bg-slate-50 transition-colors"
+                      style={{ background: "var(--background)", borderColor: "var(--border)" }}
+                    >
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-100 text-slate-600 flex-shrink-0">
+                        <Link2 className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold truncate text-slate-800">{res.name}</p>
+                        <p className="text-[10px] uppercase font-bold text-slate-400 mt-0.5">{res.type}</p>
+                      </div>
+                      <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+                    </a>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="replays" className="flex-1 overflow-y-auto mt-0 rounded-2xl border p-4" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+              <h3 className="font-semibold mb-3 text-sm uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
+                Live Class Replays
+              </h3>
+              {course?.replayUrl ? (
+                <div className="space-y-4">
+                  <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                    Watch the recording of the latest live class interactive session:
+                  </p>
+                  {getYouTubeId(course.replayUrl) ? (
+                    <div className="rounded-xl overflow-hidden bg-black aspect-video w-full">
+                      <iframe
+                        className="w-full h-full"
+                        src={`https://www.youtube.com/embed/${getYouTubeId(course.replayUrl)}?rel=0`}
+                        title="Live Class Replay"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-xl border border-dashed flex flex-col items-center justify-center text-center">
+                      <PlayCircle className="w-10 h-10 text-orange-500 mb-2" />
+                      <p className="text-xs font-semibold mb-2">Replay Link Ready</p>
+                      <a
+                        href={course.replayUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs bg-orange-500 text-white font-semibold px-4 py-2 rounded-xl hover:bg-orange-600 transition-colors inline-flex items-center gap-1"
+                      >
+                        Open Replay Link <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-10 opacity-60">
+                  <PlayCircle className="w-8 h-8 mx-auto mb-2" />
+                  <p className="text-sm">No live class replays available yet.</p>
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="projects" className="flex-1 overflow-y-auto mt-0 rounded-2xl border p-4" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>

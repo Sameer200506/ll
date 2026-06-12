@@ -8,10 +8,13 @@ import { getAllCourses } from "@/lib/firestore";
 import { ArrowRight, PlayCircle, Star, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
+const CATEGORIES = ["All", "Classes 1–12", "Computer Basics", "MS Office", "AI Tools", "Math Basics", "Projects"];
+
 export default function CoursesCatalogPage() {
   const [courses, setCourses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("All");
 
   useEffect(() => {
     (async () => {
@@ -21,7 +24,20 @@ export default function CoursesCatalogPage() {
     })();
   }, []);
 
-  const filtered = courses.filter(c => c.title.toLowerCase().includes(search.toLowerCase()) || c.teacherName.toLowerCase().includes(search.toLowerCase()));
+  const filtered = courses.filter((c) => {
+    const matchesSearch =
+      c.title?.toLowerCase().includes(search.toLowerCase()) ||
+      (c.teacherName || "").toLowerCase().includes(search.toLowerCase()) ||
+      (c.description || "").toLowerCase().includes(search.toLowerCase());
+
+    const courseCat = c.category || "Classes 1–12";
+    const matchesCategory =
+      selectedCategory === "All" ||
+      courseCat === selectedCategory ||
+      (selectedCategory === "Classes 1–12" && courseCat === "Visual Coding (Classes 1–12)");
+
+    return matchesSearch && matchesCategory;
+  });
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: "var(--background)" }}>
@@ -29,8 +45,10 @@ export default function CoursesCatalogPage() {
       <nav className="border-b px-6 py-4 flex items-center justify-between sticky top-0 z-50"
         style={{ background: "rgba(255, 255, 255, 0.85)", backdropFilter: "blur(12px)", borderColor: "var(--border)" }}>
         <Link href="/" className="flex items-center gap-3 transition-opacity hover:opacity-80">
-          <img src="/assets/mainlogo.png" alt="CodeKrafters Logo" className="w-8 h-8 object-contain rounded-lg" />
-          <span className="text-xl font-bold gradient-text hidden sm:inline-block">CodeKrafters.in</span>
+          <img src="/assets/mainlogo.png" alt="JRCODECRAFTERZ Logo" className="w-8 h-8 object-contain rounded-lg" />
+          <span className="text-xl font-bold tracking-tight text-slate-900">
+            JR<span className="text-orange-500 font-extrabold">CODE</span>CRAFTERZ
+          </span>
         </Link>
         <div className="flex items-center gap-3">
           <Link href="/login">
@@ -44,8 +62,8 @@ export default function CoursesCatalogPage() {
 
       {/* Main Content */}
       <main className="flex-1 px-6 py-12 max-w-7xl mx-auto w-full">
-        <div className="mb-10 animate-fade-in">
-          <h1 className="text-4xl font-bold mb-4">Course <span className="gradient-text">Catalog</span></h1>
+        <div className="mb-10 animate-fade-in text-left">
+          <h1 className="text-4xl font-bold mb-4">Course <span className="gradient-text text-orange-500">Catalog</span></h1>
           <p className="text-lg mb-8" style={{ color: "var(--text-secondary)" }}>
             Explore our wide range of courses taught by expert instructors.
           </p>
@@ -58,6 +76,23 @@ export default function CoursesCatalogPage() {
               className="pl-12 h-14 rounded-2xl border-2 text-base transition-colors"
               style={{ borderColor: "var(--border)", background: "var(--surface)" }}
             />
+          </div>
+
+          {/* Category Tabs */}
+          <div className="flex flex-wrap gap-2 mt-6">
+            {CATEGORIES.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(cat)}
+                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer border ${
+                  selectedCategory === cat
+                    ? "bg-orange-500 text-white border-orange-500 shadow-md shadow-orange-500/10"
+                    : "bg-white text-slate-650 hover:text-orange-500 border-slate-200"
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -77,7 +112,7 @@ export default function CoursesCatalogPage() {
               <Card key={course.id} className="card-hover flex flex-col pt-0 h-full">
                 <Link href={`/courses/${course.id}`}>
                   <div className="h-44 rounded-t-2xl overflow-hidden flex items-center justify-center relative flex-shrink-0 cursor-pointer"
-                    style={{ background: "linear-gradient(135deg, var(--surface-2), rgba(37,99,235,0.15))" }}>
+                    style={{ background: "linear-gradient(135deg, var(--surface-2), rgba(249,115,22,0.15))" }}>
                     {course.thumbnailUrl ? (
                       <img src={course.thumbnailUrl} alt={course.title} className="w-full h-full object-cover transition-transform duration-300 hover:scale-105" />
                     ) : (
@@ -90,11 +125,11 @@ export default function CoursesCatalogPage() {
                     </div>
                   </div>
                 </Link>
-                <CardContent className="pt-5 flex-1 flex flex-col">
+                <CardContent className="pt-5 flex-1 flex flex-col text-left">
                   <Link href={`/courses/${course.id}`}>
                     <h3 className="font-semibold text-base mb-1.5 line-clamp-2 hover:text-orange-500 transition-colors cursor-pointer">{course.title}</h3>
                   </Link>
-                  <p className="text-sm mb-2" style={{ color: "var(--text-secondary)" }}>by <span className="font-medium text-white">{course.teacherName}</span></p>
+                  <p className="text-sm mb-2" style={{ color: "var(--text-secondary)" }}>by <span className="font-medium text-slate-700">{course.teacherName}</span></p>
                   <p className="text-sm line-clamp-2 mb-6 flex-1" style={{ color: "var(--text-secondary)" }}>{course.description}</p>
                   <div className="flex items-center justify-between gap-2 mt-auto border-t pt-4" style={{ borderColor: "var(--border)" }}>
                     <div className="flex items-center gap-1.5">
@@ -117,10 +152,10 @@ export default function CoursesCatalogPage() {
       {/* Footer */}
       <footer className="border-t py-8 text-center text-sm px-6 mt-12 bg-black/20" style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}>
         <div className="flex items-center justify-center gap-2 mb-2">
-          <img src="/assets/Favicon.png" alt="CodeKrafters Logo" className="w-5 h-5 object-contain" />
-          <span className="font-semibold" style={{ color: "var(--text-primary)" }}>CodeKrafters.in</span>
+          <img src="/assets/Favicon.png" alt="JRCODECRAFTERZ Logo" className="w-5 h-5 object-contain" />
+          <span className="font-semibold" style={{ color: "var(--text-primary)" }}>JRCODECRAFTERZ</span>
         </div>
-        <p>© 2026 CodeKrafters.in. Built for modern learners.</p>
+        <p>© 2026 JRCODECRAFTERZ. Built for modern learners.</p>
       </footer>
     </div>
   );

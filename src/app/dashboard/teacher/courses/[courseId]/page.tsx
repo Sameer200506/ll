@@ -17,7 +17,8 @@ import {
   getResourcesByCourse, addResource, deleteResource,
   getEnrollmentsByCourse, getAllUsers,
   getQuizzesByCourse, createQuiz, updateQuiz, deleteQuiz,
-  assignProject, getProjectsByCourse, gradeProject
+  assignProject, getProjectsByCourse, gradeProject,
+  createCertificate, getAllCertificates
 } from "@/lib/firestore";
 import {
   Plus, Trash2, PlayCircle, ArrowLeft, ExternalLink,
@@ -229,31 +230,59 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
   const [addingRes, setAddingRes] = useState(false);
 
   // settings
-  const [settingsForm, setSettingsForm] = useState({ title: "", description: "", thumbnailUrl: "", price: "0" });
+  const [settingsForm, setSettingsForm] = useState({ title: "", description: "", thumbnailUrl: "", price: "0", curriculumPdfUrl: "", replayUrl: "" });
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
+  const [certificates, setCertificates] = useState<any[]>([]);
+  const [recommendingCert, setRecommendingCert] = useState<string | null>(null);
 
   useEffect(() => { params.then((p) => setCourseId(p.courseId)); }, [params]);
   useEffect(() => { if (!courseId) return; loadAll(); }, [courseId]);
 
+  const handleRecommendCertificate = async (student: any) => {
+    if (!course) return;
+    setRecommendingCert(student.id);
+    try {
+      const { id, certNumber } = await createCertificate({
+        studentId: student.id,
+        studentName: student.name,
+        courseId: courseId,
+        courseName: course.title,
+        completionDate: new Date().toISOString().split("T")[0],
+        issuedBy: user?.name || "Teacher",
+      });
+      toast.success(`Certificate ${certNumber} generated!`);
+      const certs = await getAllCertificates();
+      setCertificates(certs.filter((cert: any) => cert.courseId === courseId));
+    } catch (err) {
+      toast.error("Failed to generate certificate");
+    } finally {
+      setRecommendingCert(null);
+    }
+  };
+
   const loadAll = async () => {
-    const [c, l, r, q, projArr] = await Promise.all([
+    const [c, l, r, q, projArr, certs] = await Promise.all([
       getCourse(courseId),
       getLessonsByCourse(courseId),
       getResourcesByCourse(courseId),
       getQuizzesByCourse(courseId),
       getProjectsByCourse(courseId),
+      getAllCertificates(),
     ]);
     setCourse(c);
     setLessons(l);
     setResources(r);
     setQuizzes(q);
     setProjects(projArr);
+    setCertificates(certs.filter((cert: any) => cert.courseId === courseId));
     setSettingsForm({
       title: c?.title ?? "",
       description: c?.description ?? "",
       thumbnailUrl: c?.thumbnailUrl ?? "",
       price: String(c?.price ?? 0),
+      curriculumPdfUrl: c?.curriculumPdfUrl ?? "",
+      replayUrl: c?.replayUrl ?? "",
     });
     const enrollments = await getEnrollmentsByCourse(courseId);
     if (enrollments.length > 0) {
@@ -381,7 +410,14 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
     e.preventDefault();
     setSavingSettings(true);
     try {
-      await updateCourse(courseId, { title: settingsForm.title, description: settingsForm.description, thumbnailUrl: settingsForm.thumbnailUrl, price: parseFloat(settingsForm.price) || 0 });
+      await updateCourse(courseId, {
+        title: settingsForm.title,
+        description: settingsForm.description,
+        thumbnailUrl: settingsForm.thumbnailUrl,
+        price: parseFloat(settingsForm.price) || 0,
+        curriculumPdfUrl: settingsForm.curriculumPdfUrl,
+        replayUrl: settingsForm.replayUrl,
+      });
       setCourse((prev: any) => ({ ...prev, ...settingsForm, price: parseFloat(settingsForm.price) || 0 }));
       toast.success("Course updated!");
       setSettingsSaved(true);
@@ -750,6 +786,14 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
                 <Label>Price (₹)</Label>
                 <Input type="number" min="0" placeholder="0 for free" value={settingsForm.price} onChange={(e) => setSettingsForm({ ...settingsForm, price: e.target.value })} />
               </div>
+              <div className="space-y-1.5">
+                <Label>Curriculum Syllabus PDF URL</Label>
+                <Input placeholder="https://… (link to curriculum PDF)" value={settingsForm.curriculumPdfUrl} onChange={(e) => setSettingsForm({ ...settingsForm, curriculumPdfUrl: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Live Class Replay / Recorded Video URL</Label>
+                <Input placeholder="https://… (YouTube or Drive link for live recordings)" value={settingsForm.replayUrl} onChange={(e) => setSettingsForm({ ...settingsForm, replayUrl: e.target.value })} />
+              </div>
               <Button type="submit" className="gap-2" disabled={savingSettings}>
                 {settingsSaved ? <><Check className="w-4 h-4" /> Saved!</> : <><Save className="w-4 h-4" /> {savingSettings ? "Saving…" : "Save Changes"}</>}
               </Button>
@@ -775,22 +819,42 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
             </Card>
           ) : (
             <div className="space-y-3">
-              {students.map((s: any) => (
-                <div key={s.id} className="flex items-center gap-4 p-4 rounded-2xl border" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm text-white" style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-2))" }}>
-                    {(s.name?.[0] ?? "?").toUpperCase()}
+              {students.map((s: any) => {
+                const studentCert = certificates.find((c: any) => c.studentId === s.id);
+                return (
+                  <div key={s.id} className="flex items-center gap-4 p-4 rounded-2xl border flex-wrap sm:flex-nowrap" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm text-white" style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-2))" }}>
+                      {(s.name?.[0] ?? "?").toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{s.name}</p>
+                      <p className="text-xs truncate mt-0.5" style={{ color: "var(--text-secondary)" }}>{s.email}</p>
+                    </div>
+                    <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
+                      {s.purchasedAt && (
+                        <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                          Enrolled {new Date(s.purchasedAt).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" })}
+                        </span>
+                      )}
+                      {studentCert ? (
+                        <Badge variant="success" className="gap-1 flex-shrink-0 bg-green-50 text-green-700 border-green-200">
+                          <Check className="w-3 h-3 text-green-600" /> Issued ({studentCert.certNumber})
+                        </Badge>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={recommendingCert === s.id}
+                          onClick={() => handleRecommendCertificate(s)}
+                          className="text-xs border-orange-500 text-orange-500 hover:bg-orange-50 font-bold flex-shrink-0"
+                        >
+                          {recommendingCert === s.id ? "Issuing..." : "Recommend Certificate"}
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{s.name}</p>
-                    <p className="text-xs truncate mt-0.5" style={{ color: "var(--text-secondary)" }}>{s.email}</p>
-                  </div>
-                  {s.purchasedAt && (
-                    <span className="text-xs flex-shrink-0" style={{ color: "var(--text-secondary)" }}>
-                      Enrolled {new Date(s.purchasedAt).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" })}
-                    </span>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </TabsContent>

@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
@@ -8,6 +9,7 @@ import {
   Users, ClipboardList, Video, ShoppingBag,
   LogOut, FolderOpen, Radio, MessageCircle, Shield, Award
 } from "lucide-react";
+import { getSiteSettings } from "@/lib/firestore";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -56,6 +58,15 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
   const { user, logout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
+  const [whatsappNumber, setWhatsappNumber] = useState("9347008039");
+
+  useEffect(() => {
+    getSiteSettings().then((settings) => {
+      if (settings?.whatsappNumber) {
+        setWhatsappNumber(settings.whatsappNumber);
+      }
+    });
+  }, []);
 
   const links =
     user?.role === "teacher"
@@ -140,7 +151,7 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
       <div className="px-3 pb-6 space-y-1 border-t pt-4" style={{ borderColor: "var(--border)" }}>
         {/* WhatsApp Contact */}
         <a
-          href="https://wa.me/919999999999"
+          href={`https://wa.me/${whatsappNumber}`}
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium w-full transition-all duration-200 hover:opacity-80"

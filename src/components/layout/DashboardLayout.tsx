@@ -4,7 +4,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Sidebar } from "./Sidebar";
 import { Bell, Menu, ShoppingBag, ArrowRight } from "lucide-react";
-import { getApprovedEnrollmentsByUser, getEnrollmentsByUser } from "@/lib/firestore";
+import { getApprovedEnrollmentsByUser, getEnrollmentsByUser, getSiteSettings } from "@/lib/firestore";
 import Link from "next/link";
 
 interface DashboardLayoutProps {
@@ -23,6 +23,8 @@ export function DashboardLayout({ children, title, description, allowedRoles, by
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [enrollmentStatus, setEnrollmentStatus] = useState<"loading" | "none" | "pending" | "approved">("loading");
+  const [whatsappNumber, setWhatsappNumber] = useState("9347008039");
+  const [pendingCourseTitle, setPendingCourseTitle] = useState("");
 
   useEffect(() => {
     if (!loading && !user) {
@@ -40,15 +42,34 @@ export function DashboardLayout({ children, title, description, allowedRoles, by
   // Enrollment gate for students — check if they have any enrollment (pending or approved)
   useEffect(() => {
     if (!user || user.role !== "student") return;
-    getEnrollmentsByUser(user.id).then((enrollments) => {
+    getEnrollmentsByUser(user.id).then(async (enrollments) => {
       if (enrollments.length === 0) {
         setEnrollmentStatus("none");
       } else {
         const approved = enrollments.some((e: any) => e.status === "approved");
         setEnrollmentStatus(approved ? "approved" : "pending");
+        
+        // Find if there is a pending enrollment to display its course title in the banner
+        const pending = enrollments.find((e: any) => e.status === "pending") as any;
+        if (pending) {
+          const { getCourse } = await import("@/lib/firestore");
+          const c = await getCourse(pending.courseId);
+          if (c) setPendingCourseTitle(c.title);
+        } else {
+          setPendingCourseTitle("");
+        }
       }
     });
   }, [user]);
+
+  // Load WhatsApp settings
+  useEffect(() => {
+    getSiteSettings().then((settings) => {
+      if (settings?.whatsappNumber) {
+        setWhatsappNumber(settings.whatsappNumber);
+      }
+    });
+  }, []);
 
   if (loading) {
     return (
@@ -115,7 +136,7 @@ export function DashboardLayout({ children, title, description, allowedRoles, by
               Browse & Enroll in a Course <ArrowRight className="w-4 h-4" />
             </Link>
             <a
-              href="https://wa.me/919999999999"
+              href={`https://wa.me/${whatsappNumber}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 w-full py-3 px-6 rounded-2xl font-bold border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all mt-3"
@@ -155,7 +176,7 @@ export function DashboardLayout({ children, title, description, allowedRoles, by
               You'll get full access to your course and dashboard once the admin approves your payment. This usually takes a few hours.
             </p>
             <a
-              href="https://wa.me/919999999999"
+              href={`https://wa.me/${whatsappNumber}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 w-full py-3.5 px-6 rounded-2xl font-bold text-white shadow-lg transition-all hover:opacity-90 mb-3"
@@ -212,6 +233,25 @@ export function DashboardLayout({ children, title, description, allowedRoles, by
             </button>
           </div>
         </div>
+        {/* Payment Warning Banner */}
+        {user.role === "student" && pendingCourseTitle && (
+          <div className="bg-amber-50 border-b border-amber-200 px-6 py-3 text-sm text-amber-800 flex items-center justify-between font-medium animate-fade-in text-left">
+            <span className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse flex-shrink-0" />
+              <span>
+                Your payment for course <strong>{pendingCourseTitle}</strong> is currently pending review. Access will be unlocked automatically upon approval.
+              </span>
+            </span>
+            <a 
+              href={`https://wa.me/${whatsappNumber}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs bg-amber-600 text-white font-bold px-3.5 py-1.5 rounded-xl hover:bg-amber-700 transition-colors flex-shrink-0 ml-4 inline-block"
+            >
+              Contact Support
+            </a>
+          </div>
+        )}
         {/* Content */}
         <div className="p-4 md:p-8 animate-fade-in">
           {children}

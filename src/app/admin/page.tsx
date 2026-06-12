@@ -20,22 +20,29 @@ import {
   createUserDoc,
   updateSiteSettings,
   getSiteSettings,
+  createCourse,
+  updateCourse,
+  createCertificate,
+  getAllCertificates,
+  deleteCertificate,
 } from "@/lib/firestore";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import {
   Users, BookOpen, ShoppingBag, BarChart3,
   Trash2, RefreshCw, Shield, GraduationCap,
   Search, LogOut, Activity, FileText, AlertTriangle,
   IndianRupee, ChevronDown, ChevronUp, Eye,
-  Mail, Phone, MessageSquare, Calendar, Sparkles, Check, CheckCircle2, Clock, UserPlus
+  Mail, Phone, MessageSquare, Calendar, Sparkles, Check, CheckCircle2, Clock, UserPlus,
+  Award, Plus, Pencil, Settings
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 
-type Tab = "overview" | "leads" | "students" | "teachers" | "courses" | "enrollments" | "payments" | "cms";
+type Tab = "overview" | "leads" | "students" | "teachers" | "courses" | "enrollments" | "payments" | "cms" | "certificates";
 
 const ADMIN_PASSWORD = "admin123";
 
@@ -68,10 +75,31 @@ export default function AdminPage() {
   const [quizResults, setQuizResults] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [leads, setLeads] = useState<any[]>([]);
+  const [certificates, setCertificates] = useState<any[]>([]);
 
   // CMS / Settings
   const [logoUrl, setLogoUrl] = useState("");
-  const [whatsappNumber, setWhatsappNumber] = useState("919999999999");
+  const [whatsappNumber, setWhatsappNumber] = useState("9347008039");
+  const [email, setEmail] = useState("jrcodecrafterz@gmail.com");
+  const [phone, setPhone] = useState("9347008039");
+  const [website, setWebsite] = useState("www.jrcodecrafterz.com");
+  const [heroTitle, setHeroTitle] = useState("Learn Coding Live From Experts");
+  const [heroTagline, setHeroTagline] = useState("Turning Young Minds Into Future-Ready Code Crafters");
+  const [classRange, setClassRange] = useState("Classes 1–12");
+  const [footerText, setFooterText] = useState("Turning young learners into certified future-ready creators, game developers, and tech innovators.");
+  
+  // Curriculum site settings
+  const [curriculumTitle, setCurriculumTitle] = useState("JRCODECRAFTERZ Syllabus Outline");
+  const [curriculumDesc, setCurriculumDesc] = useState("A comprehensive, structured syllabus designed to scale technical competency logically.");
+  const [curriculumPdfUrl, setCurriculumPdfUrl] = useState("");
+  const [curriculumOverview, setCurriculumOverview] = useState("Structured around project-based milestones to guarantee interactive comprehension.");
+  const [curriculumTopics, setCurriculumTopics] = useState("Variables, conditionals, nested loops, visual canvas drawing, DOM controls, responsive HTML layouts, and ChatGPT prompt operations.");
+  const [curriculumOutcomes, setCurriculumOutcomes] = useState("Build fully-functional games, deploy custom web apps, receive signed certificate validations.");
+
+  // Certificate template configs
+  const [certPrefix, setCertPrefix] = useState("JRCC-");
+  const [certSignature, setCertSignature] = useState("Platform Director");
+
   const [settingsSaving, setSettingsSaving] = useState(false);
 
   // Manual course assignment
@@ -86,6 +114,27 @@ export default function AdminPage() {
   const [teacherPassword, setTeacherPassword] = useState("");
   const [creatingTeacher, setCreatingTeacher] = useState(false);
   const [createdTeacher, setCreatedTeacher] = useState<{ name: string; email: string; password: string } | null>(null);
+
+  // Course Editor
+  const [courseOpen, setCourseOpen] = useState(false);
+  const [editingCourse, setEditingCourse] = useState<any>(null); // null = new course
+  const [courseForm, setCourseForm] = useState({
+    title: "",
+    description: "",
+    thumbnailUrl: "",
+    price: "0",
+    category: "Classes 1–12",
+    curriculumPdfUrl: "",
+    replayUrl: "",
+    published: true,
+    teacherId: "",
+  });
+  const [savingCourse, setSavingCourse] = useState(false);
+
+  // Certificate Issuance
+  const [manualCertStudentId, setManualCertStudentId] = useState("");
+  const [manualCertCourseId, setManualCertCourseId] = useState("");
+  const [issuingCert, setIssuingCert] = useState(false);
   const [showTeacherPw, setShowTeacherPw] = useState(false);
 
   const students = users.filter((u) => u.role === "student");
@@ -95,13 +144,14 @@ export default function AdminPage() {
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [u, c, e, qr, pr, ld] = await Promise.all([
+      const [u, c, e, qr, pr, ld, certs] = await Promise.all([
         getAllUsers(),
         getAllCourses(),
         getAllEnrollments(),
         getAllQuizResults(),
         getAllProjects(),
         getAllLeads(),
+        getAllCertificates(),
       ]);
       setUsers(u as any[]);
       setCourses(c as any[]);
@@ -109,11 +159,31 @@ export default function AdminPage() {
       setQuizResults(qr as any[]);
       setProjects(pr as any[]);
       setLeads(ld as any[]);
+      setCertificates(certs as any[]);
       // Also load site settings
       const settings = await getSiteSettings();
       if (settings) {
         setLogoUrl(settings.logoUrl || "");
-        setWhatsappNumber(settings.whatsappNumber || "919999999999");
+        setWhatsappNumber(settings.whatsappNumber || "9347008039");
+        setEmail(settings.email || "jrcodecrafterz@gmail.com");
+        setPhone(settings.phone || "9347008039");
+        setWebsite(settings.website || "www.jrcodecrafterz.com");
+        setHeroTitle(settings.heroTitle || "Learn Coding Live From Experts");
+        setHeroTagline(settings.heroTagline || "Turning Young Minds Into Future-Ready Code Crafters");
+        setClassRange(settings.classRange || "Classes 1–12");
+        setFooterText(settings.footerText || "Turning young learners into certified future-ready creators, game developers, and tech innovators.");
+
+        if (settings.curriculum) {
+          setCurriculumTitle(settings.curriculum.title || "JRCODECRAFTERZ Syllabus Outline");
+          setCurriculumDesc(settings.curriculum.desc || "A comprehensive, structured syllabus designed to scale technical competency logically.");
+          setCurriculumPdfUrl(settings.curriculum.pdfUrl || "");
+          setCurriculumOverview(settings.curriculum.syllabusOverview || "Structured around project-based milestones to guarantee interactive comprehension.");
+          setCurriculumTopics(settings.curriculum.topicsCovered || "Variables, conditionals, nested loops, visual canvas drawing, DOM controls, responsive HTML layouts, and ChatGPT prompt operations.");
+          setCurriculumOutcomes(settings.curriculum.learningOutcomes || "Build fully-functional games, deploy custom web apps, receive signed certificate validations.");
+        }
+
+        setCertPrefix(settings.certPrefix || "JRCC-");
+        setCertSignature(settings.certSignature || "Platform Director");
       }
     } catch {
       toast.error("Failed to load data");
@@ -274,6 +344,93 @@ export default function AdminPage() {
     }
   };
 
+  const handleSaveCourse = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingCourse(true);
+    try {
+      const teacher = users.find((u) => u.id === courseForm.teacherId);
+      const courseData = {
+        title: courseForm.title,
+        description: courseForm.description,
+        thumbnailUrl: courseForm.thumbnailUrl,
+        price: parseFloat(courseForm.price) || 0,
+        category: courseForm.category || "Classes 1–12",
+        curriculumPdfUrl: courseForm.curriculumPdfUrl,
+        replayUrl: courseForm.replayUrl,
+        published: courseForm.published,
+        teacherId: courseForm.teacherId || "admin",
+        teacherName: teacher ? teacher.name : "Admin / JRCODECRAFTERZ",
+      };
+
+      if (editingCourse) {
+        await updateCourse(editingCourse.id, courseData);
+        toast.success("Course updated successfully!");
+      } else {
+        await createCourse(courseData);
+        toast.success("Course created successfully!");
+      }
+      setCourseOpen(false);
+      setEditingCourse(null);
+      setCourseForm({
+        title: "",
+        description: "",
+        thumbnailUrl: "",
+        price: "0",
+        category: "Classes 1–12",
+        curriculumPdfUrl: "",
+        replayUrl: "",
+        published: true,
+        teacherId: "",
+      });
+      fetchAll();
+    } catch (err) {
+      toast.error("Failed to save course. Please try again.");
+    } finally {
+      setSavingCourse(false);
+    }
+  };
+
+  const handleManualCertSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualCertStudentId || !manualCertCourseId) {
+      toast.error("Select student and course!");
+      return;
+    }
+    setIssuingCert(true);
+    try {
+      const student = users.find((u) => u.id === manualCertStudentId);
+      const course = courses.find((c) => c.id === manualCertCourseId);
+      if (!student || !course) throw new Error("Invalid student or course");
+
+      const { certNumber } = await createCertificate({
+        studentId: manualCertStudentId,
+        studentName: student.name,
+        courseId: manualCertCourseId,
+        courseName: course.title,
+        completionDate: new Date().toISOString().split("T")[0],
+      });
+      toast.success(`Certificate ${certNumber} generated successfully!`);
+      setManualCertStudentId("");
+      setManualCertCourseId("");
+      fetchAll();
+    } catch (err: any) {
+      toast.error("Failed to generate certificate: " + err.message);
+    } finally {
+      setIssuingCert(false);
+    }
+  };
+
+  const handleDeleteCert = async (certId: string) => {
+    if (!confirm("Are you sure you want to delete this certificate?")) return;
+    try {
+      await deleteCertificate(certId);
+      toast.success("Certificate deleted!");
+      fetchAll();
+    } catch {
+      toast.error("Failed to delete certificate");
+    }
+  };
+
   const pendingEnrollments = enrollments.filter((e: any) => e.status === "pending");
   const approvedEnrollments = enrollments.filter((e: any) => e.status !== "pending");
 
@@ -290,6 +447,7 @@ export default function AdminPage() {
     { id: "courses", label: "Courses", icon: BookOpen, count: courses.length },
     { id: "enrollments", label: "Enrollments", icon: ShoppingBag, count: pendingEnrollments.length > 0 ? `Req: ${pendingEnrollments.length}` : approvedEnrollments.length, highlight: pendingEnrollments.length > 0 },
     { id: "payments", label: "Payments Logs", icon: IndianRupee },
+    { id: "certificates", label: "Certificates", icon: Award, count: certificates.length },
     { id: "cms", label: "CMS & Settings", icon: Activity },
   ];
 
@@ -745,34 +903,217 @@ export default function AdminPage() {
 
                   {/* COURSES TAB */}
                   {tab === "courses" && (
-                    <motion.div variants={fadeInUp} className="space-y-4">
-                      {filterBy(courses, ["title", "teacherName", "id"]).map((c: any) => {
-                        const count = enrollments.filter((e) => e.courseId === c.id).length;
-                        return (
-                          <Card key={c.id} className="border-slate-100 card-hover bg-white text-left">
-                            <CardContent className="py-4 flex items-center justify-between gap-4">
-                              <div className="flex items-center gap-3.5 min-w-0 flex-1">
-                                <div className="w-10 h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center flex-shrink-0 shadow-md">
-                                  <BookOpen className="w-5 h-5" />
-                                </div>
-                                <div className="min-w-0">
-                                  <p className="font-bold text-slate-900 truncate text-sm">{c.title}</p>
-                                  <p className="text-xs text-slate-400 font-semibold mt-0.5">by {c.teacherName} · {count} Enrolled</p>
-                                </div>
+                    <motion.div variants={fadeInUp} className="space-y-4 text-left">
+                      <div className="flex justify-between items-center mb-2">
+                        <h2 className="text-base font-bold text-slate-900">Course Registry ({courses.length})</h2>
+                        <Button
+                          onClick={() => {
+                            setEditingCourse(null);
+                            setCourseForm({
+                              title: "",
+                              description: "",
+                              thumbnailUrl: "",
+                              price: "0",
+                              category: "Classes 1–12",
+                              curriculumPdfUrl: "",
+                              replayUrl: "",
+                              published: true,
+                              teacherId: "",
+                            });
+                            setCourseOpen(true);
+                          }}
+                          className="gap-2 bg-orange-500 hover:bg-orange-600 text-white font-bold"
+                        >
+                          <Plus className="w-4 h-4" /> Create Course
+                        </Button>
+                      </div>
+
+                      {/* Course Dialog */}
+                      <Dialog open={courseOpen} onOpenChange={setCourseOpen}>
+                        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto bg-white p-6 rounded-2xl shadow-xl">
+                          <DialogHeader>
+                            <DialogTitle className="text-lg font-bold text-slate-900">
+                              {editingCourse ? "Edit Course Details" : "Create New Course"}
+                            </DialogTitle>
+                          </DialogHeader>
+                          <form onSubmit={handleSaveCourse} className="space-y-4 mt-2">
+                            <div className="space-y-1">
+                              <label className="block text-xs font-bold text-slate-500 uppercase">Course Title *</label>
+                              <input
+                                type="text" required
+                                placeholder="e.g. Complete Python Bootcamp"
+                                value={courseForm.title}
+                                onChange={(e) => setCourseForm({ ...courseForm, title: e.target.value })}
+                                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:border-orange-500"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="block text-xs font-bold text-slate-500 uppercase">Description</label>
+                              <textarea
+                                rows={3}
+                                placeholder="Syllabus details or course objectives..."
+                                value={courseForm.description}
+                                onChange={(e) => setCourseForm({ ...courseForm, description: e.target.value })}
+                                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:border-orange-500"
+                              />
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-1">
+                                <label className="block text-xs font-bold text-slate-500 uppercase">Category *</label>
+                                <select
+                                  value={courseForm.category}
+                                  onChange={(e) => setCourseForm({ ...courseForm, category: e.target.value })}
+                                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:border-orange-500"
+                                >
+                                  <option value="Classes 1–12">Classes 1–12</option>
+                                  <option value="Computer Basics">Computer Basics</option>
+                                  <option value="MS Office">MS Office</option>
+                                  <option value="AI Tools">AI Tools</option>
+                                  <option value="Math Basics">Math Basics</option>
+                                  <option value="Projects">Projects</option>
+                                </select>
                               </div>
-                              <Badge className="bg-orange-50 text-orange-600 border border-orange-200/50 hover:bg-orange-50 font-bold px-3 text-xs flex-shrink-0">
-                                {c.price === 0 ? "Free Program" : `₹${c.price}`}
-                              </Badge>
-                              <button
-                                onClick={() => handleDeleteCourse(c.id, c.title)}
-                                className="w-9 h-9 rounded-xl bg-red-50 text-red-500 border border-red-100 flex items-center justify-center hover:bg-red-100 transition-colors flex-shrink-0 cursor-pointer"
+                              <div className="space-y-1">
+                                <label className="block text-xs font-bold text-slate-500 uppercase">Price (₹) *</label>
+                                <input
+                                  type="number" required min="0"
+                                  placeholder="0 for free"
+                                  value={courseForm.price}
+                                  onChange={(e) => setCourseForm({ ...courseForm, price: e.target.value })}
+                                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:border-orange-500"
+                                />
+                              </div>
+                            </div>
+                            <div className="space-y-1">
+                              <label className="block text-xs font-bold text-slate-500 uppercase">Thumbnail Image URL</label>
+                              <input
+                                type="url"
+                                placeholder="https://example.com/image.jpg"
+                                value={courseForm.thumbnailUrl}
+                                onChange={(e) => setCourseForm({ ...courseForm, thumbnailUrl: e.target.value })}
+                                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:border-orange-500"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="block text-xs font-bold text-slate-500 uppercase">Curriculum Syllabus PDF URL</label>
+                              <input
+                                type="url"
+                                placeholder="https://example.com/syllabus.pdf"
+                                value={courseForm.curriculumPdfUrl}
+                                onChange={(e) => setCourseForm({ ...courseForm, curriculumPdfUrl: e.target.value })}
+                                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:border-orange-500"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="block text-xs font-bold text-slate-500 uppercase">Live Class Replay URL</label>
+                              <input
+                                type="url"
+                                placeholder="YouTube/Google Drive Recording link"
+                                value={courseForm.replayUrl}
+                                onChange={(e) => setCourseForm({ ...courseForm, replayUrl: e.target.value })}
+                                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:border-orange-500"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="block text-xs font-bold text-slate-500 uppercase">Assigned Instructor *</label>
+                              <select
+                                value={courseForm.teacherId}
+                                onChange={(e) => setCourseForm({ ...courseForm, teacherId: e.target.value })}
+                                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:border-orange-500"
                               >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </CardContent>
-                          </Card>
-                        );
-                      })}
+                                <option value="">Admin / JRCODECRAFTERZ</option>
+                                {teachers.map((t) => (
+                                  <option key={t.id} value={t.id}>{t.name} ({t.email})</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="flex items-center gap-2 py-1">
+                              <input
+                                type="checkbox"
+                                id="published"
+                                checked={courseForm.published}
+                                onChange={(e) => setCourseForm({ ...courseForm, published: e.target.checked })}
+                                className="rounded text-orange-500 focus:ring-orange-500"
+                              />
+                              <label htmlFor="published" className="text-xs font-bold text-slate-600 cursor-pointer">
+                                Publish course immediately
+                              </label>
+                            </div>
+                            <div className="flex gap-3 pt-2">
+                              <Button type="button" variant="outline" onClick={() => setCourseOpen(false)} className="flex-1">
+                                Cancel
+                              </Button>
+                              <Button type="submit" disabled={savingCourse} className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold">
+                                {savingCourse ? "Saving..." : "Save Course"}
+                              </Button>
+                            </div>
+                          </form>
+                        </DialogContent>
+                      </Dialog>
+
+                      <div className="space-y-3">
+                        {filterBy(courses, ["title", "teacherName", "id"]).map((c: any) => {
+                          const count = enrollments.filter((e) => e.courseId === c.id).length;
+                          return (
+                            <Card key={c.id} className="border-slate-100 card-hover bg-white text-left">
+                              <CardContent className="py-4 flex items-center justify-between gap-4 flex-wrap sm:flex-nowrap">
+                                <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                                  <div className="w-10 h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center flex-shrink-0 shadow-md">
+                                    <BookOpen className="w-5 h-5" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <p className="font-bold text-slate-900 truncate text-sm">{c.title}</p>
+                                      <Badge variant="secondary" className="text-[9px] font-bold px-1.5 py-0">
+                                        {c.category || "Classes 1–12"}
+                                      </Badge>
+                                      {!c.published && (
+                                        <Badge className="bg-slate-100 text-slate-500 border border-slate-200 text-[9px] font-bold px-1.5 py-0">
+                                          Draft
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    <p className="text-xs text-slate-400 font-semibold mt-0.5">by {c.teacherName} · {count} Enrolled</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Badge className="bg-orange-50 text-orange-600 border border-orange-200/50 hover:bg-orange-50 font-bold px-3 text-xs flex-shrink-0">
+                                    {c.price === 0 ? "Free" : `₹${c.price}`}
+                                  </Badge>
+                                  <button
+                                    onClick={() => {
+                                      setEditingCourse(c);
+                                      setCourseForm({
+                                        title: c.title ?? "",
+                                        description: c.description ?? "",
+                                        thumbnailUrl: c.thumbnailUrl ?? "",
+                                        price: String(c.price ?? 0),
+                                        category: c.category ?? "Classes 1–12",
+                                        curriculumPdfUrl: c.curriculumPdfUrl ?? "",
+                                        replayUrl: c.replayUrl ?? "",
+                                        published: c.published !== false,
+                                        teacherId: c.teacherId ?? "",
+                                      });
+                                      setCourseOpen(true);
+                                    }}
+                                    className="w-9 h-9 rounded-xl bg-slate-50 text-slate-600 border border-slate-100 flex items-center justify-center hover:bg-slate-100 transition-colors flex-shrink-0 cursor-pointer"
+                                    title="Edit course details"
+                                  >
+                                    <Pencil className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteCourse(c.id, c.title)}
+                                    className="w-9 h-9 rounded-xl bg-red-50 text-red-500 border border-red-100 flex items-center justify-center hover:bg-red-100 transition-colors flex-shrink-0 cursor-pointer"
+                                    title="Delete course"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
+                      </div>
 
                       {courses.length === 0 && (
                         <div className="text-center py-16 border rounded-3xl bg-white">
@@ -1056,6 +1397,167 @@ export default function AdminPage() {
                   )}
 
 
+                  {/* CERTIFICATES TAB */}
+                  {tab === "certificates" && (
+                    <motion.div variants={fadeInUp} className="space-y-8 text-left">
+                      
+                      {/* Certificate Templates & Signature Settings */}
+                      <div>
+                        <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                          <Settings className="w-5 h-5 text-orange-500" /> Certificate Template Settings
+                        </h2>
+                        <Card className="border-orange-100 shadow-md bg-white">
+                          <CardContent className="p-6">
+                            <form onSubmit={async (e) => {
+                              e.preventDefault();
+                              setSettingsSaving(true);
+                              try {
+                                await updateSiteSettings({ certPrefix, certSignature });
+                                toast.success("Certificate template settings saved!");
+                              } catch {
+                                toast.error("Failed to save template settings");
+                              } finally {
+                                setSettingsSaving(false);
+                              }
+                            }} className="grid sm:grid-cols-2 gap-4 items-end">
+                              <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Serial Number Prefix</label>
+                                <input
+                                  type="text" required
+                                  placeholder="e.g. JRCC-"
+                                  value={certPrefix}
+                                  onChange={(e) => setCertPrefix(e.target.value)}
+                                  className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-semibold animate-fade-in"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Authorized Signature Name / Title</label>
+                                <input
+                                  type="text" required
+                                  placeholder="e.g. CEO, JRCODECRAFTERZ"
+                                  value={certSignature}
+                                  onChange={(e) => setCertSignature(e.target.value)}
+                                  className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-semibold animate-fade-in"
+                                />
+                              </div>
+                              <div className="sm:col-span-2">
+                                <Button
+                                  type="submit"
+                                  disabled={settingsSaving}
+                                  className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold"
+                                >
+                                  {settingsSaving ? "Saving..." : "Save Template Settings"}
+                                </Button>
+                              </div>
+                            </form>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      {/* Manual Certificate Issuance Form */}
+                      <div>
+                        <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                          <Award className="w-5 h-5 text-orange-500" /> Manually Issue Certificate
+                        </h2>
+                        <Card className="border-orange-100 shadow-md bg-white">
+                          <CardContent className="p-6">
+                            <form onSubmit={handleManualCertSubmit} className="grid sm:grid-cols-2 gap-4 items-end">
+                              <div className="space-y-1">
+                                <label className="block text-xs font-bold text-slate-500 uppercase">Select Graduate Student</label>
+                                <select
+                                  value={manualCertStudentId}
+                                  onChange={(e) => setManualCertStudentId(e.target.value)}
+                                  required
+                                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:border-orange-500"
+                                >
+                                  <option value="">Choose Student...</option>
+                                  {students.map((s) => (
+                                    <option key={s.id} value={s.id}>{s.name} ({s.email})</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="space-y-1">
+                                <label className="block text-xs font-bold text-slate-500 uppercase">Select Course</label>
+                                <select
+                                  value={manualCertCourseId}
+                                  onChange={(e) => setManualCertCourseId(e.target.value)}
+                                  required
+                                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:border-orange-500"
+                                >
+                                  <option value="">Choose Course...</option>
+                                  {courses.map((c) => (
+                                    <option key={c.id} value={c.id}>{c.title}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="sm:col-span-2">
+                                <Button
+                                  type="submit"
+                                  disabled={issuingCert || !manualCertStudentId || !manualCertCourseId}
+                                  className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold"
+                                >
+                                  {issuingCert ? "Generating Certificate..." : "Issue & Generate Certificate"}
+                                </Button>
+                              </div>
+                            </form>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      {/* Generated Certificate List */}
+                      <div>
+                        <h2 className="text-lg font-bold text-slate-900 mb-4">Issued Certificates Registry ({certificates.length})</h2>
+                        <div className="space-y-3">
+                          {certificates.map((cert: any) => (
+                            <Card key={cert.id} className="border-slate-100 bg-white shadow-sm">
+                              <CardContent className="py-4 flex items-center justify-between gap-4 flex-wrap sm:flex-nowrap">
+                                <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                                  <div className="w-10 h-10 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center flex-shrink-0">
+                                    <Award className="w-5 h-5" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="font-bold text-slate-900 text-sm truncate">{cert.studentName}</p>
+                                    <p className="text-xs text-slate-400 font-semibold mt-0.5">
+                                      Course: {cert.courseName} · Date: {cert.completionDate}
+                                    </p>
+                                    <p className="text-[10px] font-mono text-orange-500 mt-1 font-bold">
+                                      Serial: {cert.certNumber}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <a
+                                    href={`/certificates/${cert.id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-3.5 py-1.5 bg-orange-50 hover:bg-orange-100 border border-orange-100 rounded-xl text-xs font-bold text-orange-500 transition-colors inline-block"
+                                  >
+                                    View / Download PDF
+                                  </a>
+                                  <button
+                                    onClick={() => handleDeleteCert(cert.id)}
+                                    className="w-9 h-9 rounded-xl bg-red-50 text-red-500 border border-red-100 flex items-center justify-center hover:bg-red-100 transition-colors flex-shrink-0 cursor-pointer"
+                                    title="Delete certificate"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+
+                          {certificates.length === 0 && (
+                            <div className="text-center py-12 border border-dashed rounded-3xl bg-white">
+                              <Award className="w-10 h-10 text-slate-200 mx-auto mb-2" />
+                              <p className="text-sm font-semibold text-slate-400">No certificates generated yet</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+
                   {/* CMS & SETTINGS TAB */}
                   {tab === "cms" && (
                     <motion.div variants={fadeInUp} className="max-w-xl mx-auto text-left space-y-6">
@@ -1094,47 +1596,177 @@ export default function AdminPage() {
                               />
                             </div>
 
-                            <div>
-                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Landing Page Hero Title</label>
-                              <input
-                                type="text"
-                                defaultValue="Learn Coding Live From Experts"
-                                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-semibold"
-                              />
-                            </div>
+                             <div>
+                               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Landing Page Hero Title</label>
+                               <input
+                                 type="text"
+                                 placeholder="e.g. Learn Coding Live From Experts"
+                                 value={heroTitle}
+                                 onChange={(e) => setHeroTitle(e.target.value)}
+                                 className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-semibold"
+                               />
+                             </div>
 
-                            <div>
-                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Platform Tagline</label>
-                              <input
-                                type="text"
-                                defaultValue="Turning Young Minds Into Future-Ready Code Crafters"
-                                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-semibold"
-                              />
-                            </div>
+                             <div>
+                               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Platform Tagline</label>
+                               <input
+                                 type="text"
+                                 placeholder="e.g. Turning Young Minds Into Future-Ready Code Crafters"
+                                 value={heroTagline}
+                                 onChange={(e) => setHeroTagline(e.target.value)}
+                                 className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-semibold"
+                               />
+                             </div>
 
-                            <div>
-                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Contact Email Address</label>
-                              <input
-                                type="email"
-                                defaultValue="jrcodecrafterz@gmail.com"
-                                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-semibold"
-                              />
-                            </div>
+                             <div>
+                               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Contact Email Address</label>
+                               <input
+                                 type="email"
+                                 placeholder="info@jrcodecrafterz.com"
+                                 value={email}
+                                 onChange={(e) => setEmail(e.target.value)}
+                                 className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-semibold"
+                               />
+                             </div>
 
-                            <Button
-                              disabled={settingsSaving}
-                              onClick={async () => {
-                                setSettingsSaving(true);
-                                try {
-                                  await updateSiteSettings({ logoUrl, whatsappNumber });
-                                  toast.success("Site settings saved successfully!");
-                                } catch { toast.error("Failed to save settings"); }
-                                setSettingsSaving(false);
-                              }}
-                              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl shadow-lg shadow-orange-500/20"
-                            >
-                              {settingsSaving ? "Saving..." : "Save Site Settings"}
-                            </Button>
+                             <div className="grid grid-cols-2 gap-4">
+                               <div>
+                                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Contact Phone</label>
+                                 <input
+                                   type="text"
+                                   placeholder="9347008039"
+                                   value={phone}
+                                   onChange={(e) => setPhone(e.target.value)}
+                                   className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-semibold"
+                                 />
+                               </div>
+                               <div>
+                                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Website URL</label>
+                                 <input
+                                   type="text"
+                                   placeholder="www.jrcodecrafterz.com"
+                                   value={website}
+                                   onChange={(e) => setWebsite(e.target.value)}
+                                   className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-semibold"
+                                 />
+                               </div>
+                             </div>
+
+                             <div>
+                               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Target Class Range</label>
+                               <input
+                                 type="text"
+                                 placeholder="Classes 1–12"
+                                 value={classRange}
+                                 onChange={(e) => setClassRange(e.target.value)}
+                                 className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-semibold"
+                               />
+                             </div>
+
+                             <div className="border-t border-slate-100 pt-4 mt-2">
+                               <h4 className="text-sm font-bold text-slate-900 mb-3">Landing Page Curriculum Syllabus CMS</h4>
+                               <div className="space-y-4">
+                                 <div>
+                                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Curriculum Headline</label>
+                                   <input
+                                     type="text"
+                                     value={curriculumTitle}
+                                     onChange={(e) => setCurriculumTitle(e.target.value)}
+                                     className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-semibold"
+                                   />
+                                 </div>
+                                 <div>
+                                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Curriculum Brief Subtitle</label>
+                                   <textarea
+                                     rows={2}
+                                     value={curriculumDesc}
+                                     onChange={(e) => setCurriculumDesc(e.target.value)}
+                                     className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-semibold"
+                                   />
+                                 </div>
+                                 <div>
+                                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Curriculum PDF URL</label>
+                                   <input
+                                     type="url"
+                                     placeholder="https://..."
+                                     value={curriculumPdfUrl}
+                                     onChange={(e) => setCurriculumPdfUrl(e.target.value)}
+                                     className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-semibold"
+                                   />
+                                 </div>
+                                 <div>
+                                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Curriculum Overview Milestone</label>
+                                   <textarea
+                                     rows={2}
+                                     value={curriculumOverview}
+                                     onChange={(e) => setCurriculumOverview(e.target.value)}
+                                     className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-semibold"
+                                   />
+                                 </div>
+                                 <div>
+                                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Topics Covered List</label>
+                                   <textarea
+                                     rows={2}
+                                     value={curriculumTopics}
+                                     onChange={(e) => setCurriculumTopics(e.target.value)}
+                                     className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-semibold"
+                                   />
+                                 </div>
+                                 <div>
+                                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Learning Outcomes List</label>
+                                   <textarea
+                                     rows={2}
+                                     value={curriculumOutcomes}
+                                     onChange={(e) => setCurriculumOutcomes(e.target.value)}
+                                     className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-semibold"
+                                   />
+                                 </div>
+                               </div>
+                             </div>
+
+                             <div>
+                               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Footer Description Text</label>
+                               <textarea
+                                 rows={2}
+                                 placeholder="e.g. Turning young learners into certified..."
+                                 value={footerText}
+                                 onChange={(e) => setFooterText(e.target.value)}
+                                 className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-semibold"
+                               />
+                             </div>
+
+                             <Button
+                               disabled={settingsSaving}
+                               onClick={async () => {
+                                 setSettingsSaving(true);
+                                 try {
+                                   await updateSiteSettings({
+                                     logoUrl,
+                                     whatsappNumber,
+                                     email,
+                                     phone,
+                                     website,
+                                     heroTitle,
+                                     heroTagline,
+                                     classRange,
+                                     footerText,
+                                     curriculum: {
+                                       title: curriculumTitle,
+                                       desc: curriculumDesc,
+                                       pdfUrl: curriculumPdfUrl,
+                                       syllabusOverview: curriculumOverview,
+                                       topicsCovered: curriculumTopics,
+                                       learningOutcomes: curriculumOutcomes,
+                                     }
+                                   });
+                                   toast.success("Site settings saved successfully!");
+                                 } catch { toast.error("Failed to save settings"); }
+                                 setSettingsSaving(false);
+                               }}
+                               className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl shadow-lg shadow-orange-500/20"
+                             >
+                               {settingsSaving ? "Saving..." : "Save Site Settings"}
+                             </Button>
                           </div>
                         </CardContent>
                       </Card>

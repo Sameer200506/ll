@@ -70,8 +70,10 @@ export default function CourseDetailsPage({ params }: { params: Promise<{ course
       <nav className="border-b px-6 py-4 flex items-center justify-between sticky top-0 z-50"
         style={{ background: "rgba(255, 255, 255, 0.85)", backdropFilter: "blur(12px)", borderColor: "var(--border)" }}>
         <Link href="/" className="flex items-center gap-3 transition-opacity hover:opacity-80">
-          <img src="/assets/mainlogo.png" alt="CodeKrafters Logo" className="w-8 h-8 object-contain rounded-lg" />
-          <span className="text-xl font-bold gradient-text hidden sm:inline-block">CodeKrafters.in</span>
+          <img src="/assets/mainlogo.png" alt="JRCODECRAFTERZ Logo" className="w-8 h-8 object-contain rounded-lg" />
+          <span className="text-xl font-bold tracking-tight text-slate-900">
+            JR<span className="text-orange-500 font-extrabold">CODE</span>CRAFTERZ
+          </span>
         </Link>
         <div className="flex items-center gap-3">
           {user ? (
@@ -241,10 +243,10 @@ export default function CourseDetailsPage({ params }: { params: Promise<{ course
       {/* Footer */}
       <footer className="border-t py-8 text-center text-sm px-6 mt-12 bg-black/20" style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}>
         <div className="flex items-center justify-center gap-2 mb-2">
-          <img src="/assets/Favicon.png" alt="CodeKrafters Logo" className="w-5 h-5 object-contain" />
-          <span className="font-semibold" style={{ color: "var(--text-primary)" }}>CodeKrafters.in</span>
+          <img src="/assets/Favicon.png" alt="JRCODECRAFTERZ Logo" className="w-5 h-5 object-contain" />
+          <span className="font-semibold" style={{ color: "var(--text-primary)" }}>JRCODECRAFTERZ</span>
         </div>
-        <p>© 2026 CodeKrafters.in. Built for modern learners.</p>
+        <p>© 2026 JRCODECRAFTERZ. Built for modern learners.</p>
       </footer>
     </div>
   );
