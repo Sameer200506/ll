@@ -17,6 +17,28 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
+// Custom Social Media SVG Icons
+const Facebook = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
+  </svg>
+);
+
+const Instagram = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+    <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+  </svg>
+);
+
+const Youtube = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <path d="M2.5 17a24.12 24.12 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.56 49.56 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.12 24.12 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.55 49.55 0 0 1-16.2 0A2 2 0 0 1 2.5 17z" />
+    <polygon points="10 15 15 12 10 9 10 15" fill="currentColor" />
+  </svg>
+);
+
 // Animated counter component
 function Counter({ target, duration = 1500, suffix = "", isFloat = false }: { target: number; duration?: number; suffix?: string; isFloat?: boolean }) {
   const [count, setCount] = useState(0);
@@ -163,6 +185,9 @@ export default function LandingPage() {
   const contactEmail = siteSettings?.email || "jrcodecrafterz@gmail.com";
   const contactPhone = siteSettings?.phone || "+919347008039";
   const contactWebsite = siteSettings?.website || "www.jrcodecrafterz.com";
+  const facebookUrl = siteSettings?.facebookUrl || "https://www.facebook.com/profile.php?id=61576875185774";
+  const instagramUrl = siteSettings?.instagramUrl || "https://www.instagram.com/jrcodecrafterz?igsh=MWQydmx5cTJ3ZXo0Zg==";
+  const youtubeUrl = siteSettings?.youtubeUrl || "https://www.youtube.com/@jrcodecrafterz-14";
   const heroTitle = siteSettings?.heroTitle || "Learn Coding Live From Experts";
   const heroTagline = siteSettings?.heroTagline || "Turning Young Minds Into Future-Ready Code Crafters";
   const classRange = siteSettings?.classRange || "Classes 1–12";
@@ -1357,6 +1382,45 @@ export default function LandingPage() {
               </a>
             </div>
 
+            <div className="pt-2">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Follow our Community</p>
+              <div className="flex flex-wrap gap-3">
+                {facebookUrl && (
+                  <a 
+                    href={facebookUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="flex items-center gap-2 px-3 py-2 bg-white rounded-xl border border-slate-200/70 hover:border-blue-500 hover:text-blue-600 transition-colors shadow-sm text-xs font-semibold text-slate-650"
+                  >
+                    <Facebook className="w-4 h-4 text-blue-600" />
+                    <span>Facebook</span>
+                  </a>
+                )}
+                {instagramUrl && (
+                  <a 
+                    href={instagramUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="flex items-center gap-2 px-3 py-2 bg-white rounded-xl border border-slate-200/70 hover:border-pink-500 hover:text-pink-600 transition-colors shadow-sm text-xs font-semibold text-slate-650"
+                  >
+                    <Instagram className="w-4 h-4 text-pink-600" />
+                    <span>Instagram</span>
+                  </a>
+                )}
+                {youtubeUrl && (
+                  <a 
+                    href={youtubeUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="flex items-center gap-2 px-3 py-2 bg-white rounded-xl border border-slate-200/70 hover:border-red-500 hover:text-red-650 transition-colors shadow-sm text-xs font-semibold text-slate-650"
+                  >
+                    <Youtube className="w-4 h-4 text-red-650" />
+                    <span>YouTube</span>
+                  </a>
+                )}
+              </div>
+            </div>
+
             <div className="text-slate-500 text-xs font-semibold">
               Or simply fill out the contact form below, and our team will get back to you as soon as possible.
             </div>
@@ -1561,12 +1625,27 @@ export default function LandingPage() {
               🌐 Website: {contactWebsite}
             </p>
             <div className="flex gap-3 pt-2">
-              <a href={`https://${contactWebsite}`} className="w-8 h-8 rounded-full bg-slate-100 hover:bg-orange-100 flex items-center justify-center text-slate-650 hover:text-orange-500 cursor-pointer transition-colors">
+              <a href={`https://${contactWebsite}`} target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-slate-100 hover:bg-orange-100 flex items-center justify-center text-slate-650 hover:text-orange-500 cursor-pointer transition-colors" title="Website">
                 <Globe className="w-4 h-4" />
               </a>
-              <a href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-slate-100 hover:bg-orange-100 flex items-center justify-center text-slate-650 hover:text-orange-500 cursor-pointer transition-colors">
+              <a href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-slate-100 hover:bg-orange-100 flex items-center justify-center text-slate-650 hover:text-orange-500 cursor-pointer transition-colors" title="WhatsApp">
                 <MessageSquare className="w-4 h-4" />
               </a>
+              {facebookUrl && (
+                <a href={facebookUrl} target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-slate-100 hover:bg-orange-100 flex items-center justify-center text-slate-650 hover:text-orange-500 cursor-pointer transition-colors" title="Facebook">
+                  <Facebook className="w-4 h-4" />
+                </a>
+              )}
+              {instagramUrl && (
+                <a href={instagramUrl} target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-slate-100 hover:bg-orange-100 flex items-center justify-center text-slate-650 hover:text-orange-500 cursor-pointer transition-colors" title="Instagram">
+                  <Instagram className="w-4 h-4" />
+                </a>
+              )}
+              {youtubeUrl && (
+                <a href={youtubeUrl} target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-slate-100 hover:bg-orange-100 flex items-center justify-center text-slate-650 hover:text-orange-500 cursor-pointer transition-colors" title="YouTube">
+                  <Youtube className="w-4 h-4" />
+                </a>
+              )}
             </div>
           </div>
         </div>
