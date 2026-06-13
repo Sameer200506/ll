@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import {
   BookOpen, Calendar, LayoutDashboard,
   Users, ClipboardList, Video, ShoppingBag,
-  LogOut, FolderOpen, Radio, MessageCircle, Shield, Award
+  LogOut, FolderOpen, Radio, MessageCircle, Shield, Award, Download
 } from "lucide-react";
 import { getSiteSettings } from "@/lib/firestore";
 import { toast } from "sonner";
@@ -59,6 +59,45 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [whatsappNumber, setWhatsappNumber] = useState("+919347008039");
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      if ((window as any).deferredPrompt) {
+        setInstallPrompt((window as any).deferredPrompt);
+      }
+
+      const handlePrompt = () => {
+        setInstallPrompt((window as any).deferredPrompt);
+      };
+
+      const handleInstalled = () => {
+        setInstallPrompt(null);
+      };
+
+      window.addEventListener("pwa-install-prompt-available", handlePrompt);
+      window.addEventListener("pwa-app-installed", handleInstalled);
+
+      return () => {
+        window.removeEventListener("pwa-install-prompt-available", handlePrompt);
+        window.removeEventListener("pwa-app-installed", handleInstalled);
+      };
+    }
+  }, []);
+
+  const handleInstallClick = async () => {
+    const promptEvent = installPrompt || (typeof window !== "undefined" ? (window as any).deferredPrompt : null);
+    if (!promptEvent) return;
+
+    promptEvent.prompt();
+    const { outcome } = await promptEvent.userChoice;
+    console.log(`User choice: ${outcome}`);
+
+    if (typeof window !== "undefined") {
+      (window as any).deferredPrompt = null;
+    }
+    setInstallPrompt(null);
+  };
 
   useEffect(() => {
     getSiteSettings().then((settings) => {
@@ -149,6 +188,17 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
 
       {/* Bottom links */}
       <div className="px-3 pb-6 space-y-1 border-t pt-4" style={{ borderColor: "var(--border)" }}>
+        {/* Install PWA Button */}
+        {installPrompt && (
+          <button
+            onClick={handleInstallClick}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold w-full transition-all duration-250 hover:opacity-90 bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md shadow-orange-500/10 mb-2 cursor-pointer"
+          >
+            <Download className="w-4 h-4 animate-bounce" />
+            Install App
+          </button>
+        )}
+
         {/* WhatsApp Contact */}
         <a
           href={`https://wa.me/${whatsappNumber}`}

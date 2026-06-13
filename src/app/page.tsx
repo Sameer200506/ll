@@ -12,7 +12,7 @@ import {
   BookOpen, Video, Calendar, Trophy, Zap, ArrowRight, Users, Star, PlayCircle, 
   Code, ShieldCheck, Mail, Phone, Globe, ChevronLeft, ChevronRight, MessageSquare, 
   Award, Flame, Sparkles, Check, CheckCircle2, ChevronDown, Monitor, Laptop, GraduationCap,
-  Download, Eye, ShieldAlert
+  Download, Eye, ShieldAlert, Menu, X
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -148,6 +148,63 @@ export default function LandingPage() {
   const [courses, setCourses] = useState<any[]>([]);
   const [siteSettings, setSiteSettings] = useState<any>(null);
   const [activeTestimonial, setActiveTestimonial] = useState(0);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [showMobilePrompt, setShowMobilePrompt] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      // Check if prompt is already captured on load
+      if ((window as any).deferredPrompt) {
+        setInstallPrompt((window as any).deferredPrompt);
+        const dismissed = sessionStorage.getItem("pwa-prompt-dismissed");
+        if (!dismissed) {
+          setShowMobilePrompt(true);
+        }
+      }
+
+      const handlePrompt = () => {
+        setInstallPrompt((window as any).deferredPrompt);
+        const dismissed = sessionStorage.getItem("pwa-prompt-dismissed");
+        if (!dismissed) {
+          setShowMobilePrompt(true);
+        }
+      };
+
+      const handleInstalled = () => {
+        setInstallPrompt(null);
+        setShowMobilePrompt(false);
+      };
+
+      window.addEventListener("pwa-install-prompt-available", handlePrompt);
+      window.addEventListener("pwa-app-installed", handleInstalled);
+
+      return () => {
+        window.removeEventListener("pwa-install-prompt-available", handlePrompt);
+        window.removeEventListener("pwa-app-installed", handleInstalled);
+      };
+    }
+  }, []);
+
+  const handleInstallClick = async () => {
+    const promptEvent = installPrompt || (typeof window !== "undefined" ? (window as any).deferredPrompt : null);
+    if (!promptEvent) return;
+
+    promptEvent.prompt();
+    const { outcome } = await promptEvent.userChoice;
+    console.log(`User choice: ${outcome}`);
+
+    if (typeof window !== "undefined") {
+      (window as any).deferredPrompt = null;
+    }
+    setInstallPrompt(null);
+    setShowMobilePrompt(false);
+  };
+
+  const handleDismissPrompt = () => {
+    sessionStorage.setItem("pwa-prompt-dismissed", "true");
+    setShowMobilePrompt(false);
+  };
 
   // Special Learning Courses Category State
   const [activeCategory, setActiveCategory] = useState("Computer Basics");
@@ -418,6 +475,18 @@ export default function LandingPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Install App button (Desktop) */}
+          {installPrompt && (
+            <Button
+              onClick={handleInstallClick}
+              variant="outline"
+              size="sm"
+              className="hidden md:flex items-center gap-1.5 border-orange-200 text-orange-600 hover:bg-orange-50 hover:text-orange-700 font-semibold cursor-pointer animate-pulse-glow"
+            >
+              <Download className="w-4 h-4 animate-bounce" /> Install App
+            </Button>
+          )}
+
           {user ? (
             <>
               <span className="hidden sm:inline text-sm font-semibold text-slate-500">
@@ -439,7 +508,7 @@ export default function LandingPage() {
             </>
           ) : (
             <>
-              <Link href="/login">
+              <Link href="/login" className="hidden xs:inline-block">
                 <Button variant="ghost" size="sm" className="font-semibold text-slate-650 hover:text-orange-500 cursor-pointer">Sign In</Button>
               </Link>
               <Link href="/register">
@@ -449,6 +518,17 @@ export default function LandingPage() {
               </Link>
             </>
           )}
+
+          {/* Mobile hamburger menu toggle */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden text-slate-700 hover:text-orange-500 hover:bg-slate-50 focus:ring-0 focus:outline-none"
+            onClick={() => setMobileMenuOpen(true)}
+            aria-label="Open mobile menu"
+          >
+            <Menu className="w-6 h-6" />
+          </Button>
         </div>
       </nav>
 
@@ -1582,6 +1662,171 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+
+      {/* Mobile Nav Drawer */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.4 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setMobileMenuOpen(false)}
+              className="fixed inset-0 bg-black z-[100] md:hidden"
+            />
+            {/* Slide-out Drawer */}
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", bounce: 0.1, duration: 0.4 }}
+              className="fixed right-0 top-0 bottom-0 w-80 max-w-[85vw] bg-white shadow-2xl border-l border-slate-100 flex flex-col p-6 z-[101] md:hidden"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between pb-6 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <img src={logoUrl} alt="Logo" className="w-8 h-8 object-contain rounded-lg border border-orange-100" />
+                  <span className="font-bold text-slate-900 text-base">
+                    JR<span className="text-orange-500">CODE</span>
+                  </span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-slate-500 hover:text-orange-500"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <X className="w-6 h-6" />
+                </Button>
+              </div>
+
+              {/* Links */}
+              <div className="flex-1 py-6 flex flex-col gap-4 overflow-y-auto font-semibold text-slate-700">
+                <Link
+                  href="/courses"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="py-2.5 px-4 rounded-xl hover:bg-slate-50 hover:text-orange-500 transition-all text-left"
+                >
+                  Courses
+                </Link>
+                {[
+                  { id: "about", label: "About" },
+                  { id: "highlights", label: "Highlights" },
+                  { id: "special-courses", label: "Special Courses" },
+                  { id: "curriculum", label: "Curriculum" },
+                  { id: "certificate-preview", label: "Certificates" },
+                  { id: "pricing", label: "Pricing" },
+                  { id: "contact", label: "Contact" },
+                ].map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      handleScrollToSection(item.id);
+                    }}
+                    className="text-left py-2.5 px-4 rounded-xl hover:bg-slate-50 hover:text-orange-500 transition-all cursor-pointer"
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Footer / Install Button */}
+              <div className="pt-6 border-t border-slate-100 flex flex-col gap-3">
+                {installPrompt && (
+                  <Button
+                    onClick={handleInstallClick}
+                    className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-orange-500/20 gap-2 transition-all flex items-center justify-center cursor-pointer"
+                  >
+                    <Download className="w-5 h-5 animate-bounce" /> Install App
+                  </Button>
+                )}
+
+                {user ? (
+                  <Link
+                    href={
+                      user.role === "teacher"
+                        ? "/dashboard/teacher"
+                        : user.role === "admin"
+                        ? "/admin"
+                        : "/dashboard/student"
+                    }
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="w-full"
+                  >
+                    <Button className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 rounded-xl gap-2 transition-all flex items-center justify-center">
+                      Go to Dashboard <ArrowRight className="w-4 h-4" />
+                    </Button>
+                  </Link>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
+                      <Button variant="outline" className="w-full py-3.5 rounded-xl font-semibold border-slate-200 text-slate-700 hover:bg-slate-50">
+                        Sign In
+                      </Button>
+                    </Link>
+                    <Link href="/register" onClick={() => setMobileMenuOpen(false)}>
+                      <Button className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3.5 rounded-xl shadow-md">
+                        Get Started
+                      </Button>
+                    </Link>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Mobile-only float prompt for PWA installation */}
+      <AnimatePresence>
+        {showMobilePrompt && installPrompt && (
+          <motion.div
+            initial={{ opacity: 0, y: 100 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 100 }}
+            className="fixed bottom-4 left-4 right-4 md:hidden z-[99] bg-white/95 backdrop-blur-md border border-orange-100 shadow-2xl rounded-2xl p-4 flex flex-col gap-3 animate-pulse-glow"
+            style={{ boxShadow: "0 10px 30px -5px rgba(249, 115, 22, 0.15), 0 20px 40px -15px rgba(0, 0, 0, 0.1)" }}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <img src={logoUrl} alt="Logo" className="w-10 h-10 object-contain rounded-xl border border-orange-100/50 bg-white p-0.5 shadow-sm" />
+                <div className="text-left">
+                  <h4 className="text-sm font-bold text-slate-900">Install JRCODE CRAFTERZ</h4>
+                  <p className="text-[11px] text-slate-500 font-medium">Add to your home screen for quick offline-ready learning class access.</p>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-7 h-7 text-slate-400 hover:text-slate-600 -mt-1 -mr-1"
+                onClick={handleDismissPrompt}
+                aria-label="Dismiss prompt"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+            <div className="flex gap-2 w-full mt-1">
+              <Button
+                onClick={handleDismissPrompt}
+                variant="ghost"
+                size="sm"
+                className="flex-1 text-slate-500 hover:text-slate-700 text-xs font-semibold py-2 rounded-xl"
+              >
+                Maybe Later
+              </Button>
+              <Button
+                onClick={handleInstallClick}
+                size="sm"
+                className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-xs py-2 rounded-xl shadow-md shadow-orange-500/10 gap-1.5 flex items-center justify-center cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5 animate-bounce" /> Install App
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

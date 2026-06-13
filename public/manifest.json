@@ -1,0 +1,36 @@
+{
+  "short_name": "CodeCrafterz",
+  "name": "JRCODE CRAFTERZ",
+  "description": "Learn, grow, and connect with JRCODE CRAFTERZ — your all-in-one LMS with live coding classes, projects, quizzes, and AI-powered learning for Grades 4-12.",
+  "icons": [
+    {
+      "src": "/assets/mainlogo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/mainlogo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/mainlogo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/assets/mainlogo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#ffffff",
+  "theme_color": "#f97316",
+  "display": "standalone",
+  "orientation": "portrait"
+}

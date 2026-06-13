@@ -31,11 +31,40 @@ export const metadata: Metadata = {
     shortcut: "/assets/Favicon.png",
     apple: "/assets/Favicon.png",
   },
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="light" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if (typeof window !== 'undefined') {
+                if ('serviceWorker' in navigator) {
+                  window.addEventListener('load', function() {
+                    navigator.serviceWorker.register('/sw.js').then(function(reg) {
+                      console.log('ServiceWorker registered');
+                    }).catch(function(err) {
+                      console.log('ServiceWorker registration failed:', err);
+                    });
+                  });
+                }
+                window.addEventListener('beforeinstallprompt', function(e) {
+                  e.preventDefault();
+                  window.deferredPrompt = e;
+                  window.dispatchEvent(new CustomEvent('pwa-install-prompt-available'));
+                });
+                window.addEventListener('appinstalled', function() {
+                  window.deferredPrompt = null;
+                  window.dispatchEvent(new CustomEvent('pwa-app-installed'));
+                });
+              }
+            `
+          }}
+        />
+      </head>
       <body className={inter.className}>
         <AuthProvider>
           {children}
