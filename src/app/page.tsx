@@ -377,63 +377,15 @@ export default function LandingPage() {
     }
   };
 
-  // Sample Certificate download triggers a local PDF mock generation
-  const handleDownloadSampleCert = async () => {
-    const html2canvas = (await import("html2canvas")).default;
-    const jsPDF = (await import("jspdf")).jsPDF;
-    
-    const tempDiv = document.createElement("div");
-    tempDiv.style.position = "absolute";
-    tempDiv.style.left = "-9999px";
-    tempDiv.style.top = "-9999px";
-    tempDiv.style.width = "1122px";
-    tempDiv.style.height = "794px";
-    tempDiv.style.background = "#0b0f1a";
-    tempDiv.style.color = "#ffffff";
-    tempDiv.style.fontFamily = "Arial, sans-serif";
-    tempDiv.innerHTML = `
-      <div style="width: 100%; height: 100%; position: relative; padding: 60px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; border-left: 6px solid #f97316;">
-        <div>
-          <h2 style="color: #f97316; margin-bottom: 5px; font-size: 24px; letter-spacing: 2px;">JRCODECRAFTERZ</h2>
-          <p style="color: rgba(255,255,255,0.4); font-size: 10px; letter-spacing: 1px; margin-top: 0;">CODE · CREATE · ELEVATE</p>
-          <div style="margin-top: 50px;">
-            <h1 style="font-size: 40px; margin-bottom: 10px;">Certificate of Completion</h1>
-            <p style="color: rgba(255,255,255,0.6); font-size: 16px;">This sample certificate is awarded to</p>
-            <h2 style="font-size: 36px; color: #ffffff; border-bottom: 2px solid #f97316; display: inline-block; padding-bottom: 5px; margin-top: 20px;">Jane Doe</h2>
-          </div>
-          <p style="font-size: 16px; margin-top: 30px; max-width: 600px;">
-            for successfully completing the course <strong>Sample Programming Module</strong> with outstanding performance.
-          </p>
-        </div>
-        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 50px;">
-          <div>
-            <p style="font-style: italic; font-size: 18px; margin-bottom: 5px;">JRCODECRAFTERZ Instructor</p>
-            <div style="width: 150px; height: 1px; background: rgba(255,255,255,0.2); margin-bottom: 5px;"></div>
-            <p style="font-size: 10px; color: rgba(255,255,255,0.4); letter-spacing: 1px;">AUTHORIZED SIGNATURE</p>
-          </div>
-          <div style="text-align: right;">
-            <p style="font-size: 12px; color: #f97316; font-family: monospace;">Serial No: JRCC-SAMPLE-2026</p>
-            <p style="font-size: 10px; color: rgba(255,255,255,0.3); margin-top: 5px;">Verify at www.jrcodecrafterz.com</p>
-          </div>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(tempDiv);
-    toast.info("Generating your sample certificate PDF...");
-    try {
-      const canvas = await html2canvas(tempDiv, { scale: 2 });
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-      const pdfW = pdf.internal.pageSize.getWidth();
-      const pdfH = pdf.internal.pageSize.getHeight();
-      pdf.addImage(imgData, "PNG", 0, 0, pdfW, pdfH);
-      pdf.save("JRCODECRAFTERZ_Sample_Certificate.pdf");
-      toast.success("Sample certificate downloaded successfully!");
-    } catch (err) {
-      toast.error("Failed to generate PDF");
-    } finally {
-      document.body.removeChild(tempDiv);
-    }
+  // Sample Certificate download directly downloads the demo image
+  const handleDownloadSampleCert = () => {
+    const link = document.createElement("a");
+    link.href = "/assets/democertificate.jpg";
+    link.download = "jrcodecrafterz-sample-certificate.jpg";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Sample certificate downloaded successfully!");
   };
 
   return (
@@ -980,40 +932,19 @@ export default function LandingPage() {
             </div>
           </motion.div>
 
-          {/* Certificate Miniature HTML Mockup */}
+          {/* Certificate Miniature Image Preview */}
           <motion.div 
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true }}
             variants={slideInRight}
-            className="relative flex justify-center bg-slate-950 p-6 rounded-3xl shadow-2xl border border-slate-800"
+            className="relative flex justify-center bg-slate-950 p-4 rounded-3xl shadow-2xl border border-slate-800"
           >
-            <div className="w-full max-w-lg aspect-[1.41] bg-slate-900 border-l-4 border-orange-500 p-6 flex flex-col justify-between text-white relative overflow-hidden text-left" style={{ minHeight: "280px" }}>
-              <div className="absolute top-0 right-0 w-24 h-24 bg-orange-500/5 rounded-full blur-xl pointer-events-none" />
-              <div>
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h4 className="font-black text-xs tracking-wider">JRCODE<span className="text-orange-500">CRAFTERZ</span></h4>
-                    <p className="text-[6px] text-slate-400 tracking-wider">CODE · CREATE · ELEVATE</p>
-                  </div>
-                  <Award className="w-6 h-6 text-yellow-500" />
-                </div>
-                <div className="mt-6">
-                  <span className="text-[6px] uppercase tracking-widest text-orange-500 font-bold bg-orange-500/10 px-2 py-0.5 rounded-full">Certificate of Achievement</span>
-                  <h3 className="font-bold text-base mt-2">Jane Doe</h3>
-                  <p className="text-[8px] text-slate-400 mt-1 max-w-xs leading-normal font-semibold">Has successfully graduated and mastered visual coding structures, Python variables, loops, and functional logic checks.</p>
-                </div>
-              </div>
-              <div className="flex justify-between items-end border-t border-slate-800/60 pt-4">
-                <div>
-                  <p className="font-serif italic text-xs text-slate-350">JRCODECRAFTERZ Authorized</p>
-                  <p className="text-[6px] text-slate-500 tracking-wider uppercase mt-1">Instructor Signature</p>
-                </div>
-                <div className="text-right">
-                  <span className="font-mono text-[8px] text-orange-500 font-bold">JRCC-2026-SAMPLE</span>
-                </div>
-              </div>
-            </div>
+            <img 
+              src="/assets/democertificate.jpg" 
+              alt="JRCODE CRAFTERZ Certificate of Completion" 
+              className="w-full max-w-lg rounded-2xl border border-slate-800 shadow-md object-contain"
+            />
           </motion.div>
         </div>
       </section>

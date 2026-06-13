@@ -849,21 +849,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
                           Enrolled {new Date(s.purchasedAt).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" })}
                         </span>
                       )}
-                      {studentCert ? (
-                        <Badge variant="success" className="gap-1 flex-shrink-0 bg-green-50 text-green-700 border-green-200">
-                          <Check className="w-3 h-3 text-green-600" /> Issued ({studentCert.certNumber})
-                        </Badge>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={recommendingCert === s.id}
-                          onClick={() => handleRecommendCertificate(s)}
-                          className="text-xs border-orange-500 text-orange-500 hover:bg-orange-50 font-bold flex-shrink-0"
-                        >
-                          {recommendingCert === s.id ? "Issuing..." : "Recommend Certificate"}
-                        </Button>
-                      )}
+
                     </div>
                   </div>
                 );

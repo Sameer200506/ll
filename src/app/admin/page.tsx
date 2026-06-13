@@ -71,7 +71,7 @@ const Youtube = (props: React.SVGProps<SVGSVGElement>) => (
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 
-type Tab = "overview" | "leads" | "students" | "teachers" | "courses" | "enrollments" | "payments" | "cms" | "certificates" | "search";
+type Tab = "overview" | "leads" | "students" | "teachers" | "courses" | "enrollments" | "payments" | "cms" | "search";
 
 const ADMIN_PASSWORD = "admin123";
 
@@ -517,7 +517,6 @@ export default function AdminPage() {
     { id: "courses", label: "Courses", icon: BookOpen, count: courses.length },
     { id: "enrollments", label: "Enrollments", icon: ShoppingBag, count: pendingEnrollments.length > 0 ? `Req: ${pendingEnrollments.length}` : approvedEnrollments.length, highlight: pendingEnrollments.length > 0 },
     { id: "payments", label: "Payments Logs", icon: IndianRupee },
-    { id: "certificates", label: "Certificates", icon: Award, count: certificates.length },
     { id: "search", label: "Search Profiles", icon: Search },
     { id: "cms", label: "CMS & Settings", icon: Activity },
   ];
@@ -1477,167 +1476,6 @@ export default function AdminPage() {
                           )}
                         </CardContent>
                       </Card>
-                    </motion.div>
-                  )}
-
-
-                  {/* CERTIFICATES TAB */}
-                  {tab === "certificates" && (
-                    <motion.div variants={fadeInUp} className="space-y-8 text-left">
-                      
-                      {/* Certificate Templates & Signature Settings */}
-                      <div>
-                        <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                          <Settings className="w-5 h-5 text-orange-500" /> Certificate Template Settings
-                        </h2>
-                        <Card className="border-orange-100 shadow-md bg-white">
-                          <CardContent className="p-6">
-                            <form onSubmit={async (e) => {
-                              e.preventDefault();
-                              setSettingsSaving(true);
-                              try {
-                                await updateSiteSettings({ certPrefix, certSignature });
-                                toast.success("Certificate template settings saved!");
-                              } catch {
-                                toast.error("Failed to save template settings");
-                              } finally {
-                                setSettingsSaving(false);
-                              }
-                            }} className="grid sm:grid-cols-2 gap-4 items-end">
-                              <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Serial Number Prefix</label>
-                                <input
-                                  type="text" required
-                                  placeholder="e.g. JRCC-"
-                                  value={certPrefix}
-                                  onChange={(e) => setCertPrefix(e.target.value)}
-                                  className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-semibold animate-fade-in"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Authorized Signature Name / Title</label>
-                                <input
-                                  type="text" required
-                                  placeholder="e.g. CEO, JRCODECRAFTERZ"
-                                  value={certSignature}
-                                  onChange={(e) => setCertSignature(e.target.value)}
-                                  className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-semibold animate-fade-in"
-                                />
-                              </div>
-                              <div className="sm:col-span-2">
-                                <Button
-                                  type="submit"
-                                  disabled={settingsSaving}
-                                  className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold"
-                                >
-                                  {settingsSaving ? "Saving..." : "Save Template Settings"}
-                                </Button>
-                              </div>
-                            </form>
-                          </CardContent>
-                        </Card>
-                      </div>
-
-                      {/* Manual Certificate Issuance Form */}
-                      <div>
-                        <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                          <Award className="w-5 h-5 text-orange-500" /> Manually Issue Certificate
-                        </h2>
-                        <Card className="border-orange-100 shadow-md bg-white">
-                          <CardContent className="p-6">
-                            <form onSubmit={handleManualCertSubmit} className="grid sm:grid-cols-2 gap-4 items-end">
-                              <div className="space-y-1">
-                                <label className="block text-xs font-bold text-slate-500 uppercase">Select Graduate Student</label>
-                                <select
-                                  value={manualCertStudentId}
-                                  onChange={(e) => setManualCertStudentId(e.target.value)}
-                                  required
-                                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:border-orange-500"
-                                >
-                                  <option value="">Choose Student...</option>
-                                  {students.map((s) => (
-                                    <option key={s.id} value={s.id}>{s.name} ({s.email})</option>
-                                  ))}
-                                </select>
-                              </div>
-                              <div className="space-y-1">
-                                <label className="block text-xs font-bold text-slate-500 uppercase">Select Course</label>
-                                <select
-                                  value={manualCertCourseId}
-                                  onChange={(e) => setManualCertCourseId(e.target.value)}
-                                  required
-                                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:border-orange-500"
-                                >
-                                  <option value="">Choose Course...</option>
-                                  {courses.map((c) => (
-                                    <option key={c.id} value={c.id}>{c.title}</option>
-                                  ))}
-                                </select>
-                              </div>
-                              <div className="sm:col-span-2">
-                                <Button
-                                  type="submit"
-                                  disabled={issuingCert || !manualCertStudentId || !manualCertCourseId}
-                                  className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold"
-                                >
-                                  {issuingCert ? "Generating Certificate..." : "Issue & Generate Certificate"}
-                                </Button>
-                              </div>
-                            </form>
-                          </CardContent>
-                        </Card>
-                      </div>
-
-                      {/* Generated Certificate List */}
-                      <div>
-                        <h2 className="text-lg font-bold text-slate-900 mb-4">Issued Certificates Registry ({certificates.length})</h2>
-                        <div className="space-y-3">
-                          {certificates.map((cert: any) => (
-                            <Card key={cert.id} className="border-slate-100 bg-white shadow-sm">
-                              <CardContent className="py-4 flex items-center justify-between gap-4 flex-wrap sm:flex-nowrap">
-                                <div className="flex items-center gap-3.5 min-w-0 flex-1">
-                                  <div className="w-10 h-10 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center flex-shrink-0">
-                                    <Award className="w-5 h-5" />
-                                  </div>
-                                  <div className="min-w-0">
-                                    <p className="font-bold text-slate-900 text-sm truncate">{cert.studentName}</p>
-                                    <p className="text-xs text-slate-400 font-semibold mt-0.5">
-                                      Course: {cert.courseName} · Date: {cert.completionDate}
-                                    </p>
-                                    <p className="text-[10px] font-mono text-orange-500 mt-1 font-bold">
-                                      Serial: {cert.certNumber}
-                                    </p>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <a
-                                    href={`/certificates/${cert.id}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="px-3.5 py-1.5 bg-orange-50 hover:bg-orange-100 border border-orange-100 rounded-xl text-xs font-bold text-orange-500 transition-colors inline-block"
-                                  >
-                                    View / Download PDF
-                                  </a>
-                                  <button
-                                    onClick={() => handleDeleteCert(cert.id)}
-                                    className="w-9 h-9 rounded-xl bg-red-50 text-red-500 border border-red-100 flex items-center justify-center hover:bg-red-100 transition-colors flex-shrink-0 cursor-pointer"
-                                    title="Delete certificate"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          ))}
-
-                          {certificates.length === 0 && (
-                            <div className="text-center py-12 border border-dashed rounded-3xl bg-white">
-                              <Award className="w-10 h-10 text-slate-200 mx-auto mb-2" />
-                              <p className="text-sm font-semibold text-slate-400">No certificates generated yet</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
                     </motion.div>
                   )}
 

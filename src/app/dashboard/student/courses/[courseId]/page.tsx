@@ -62,32 +62,7 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ courseI
     })();
   }, [courseId, user]);
 
-  /** Shared cert generation logic */
-  const generateCert = async (newCompleted: string[]) => {
-    if (!user || !course) return null;
-    if (newCompleted.length < lessons.length && lessons.length > 0) return null;
-    try {
-      const existing = await getCertificatesByStudent(user.id);
-      const alreadyHasCert = existing.some((c: any) => c.courseId === courseId);
-      if (alreadyHasCert) {
-        const cert = existing.find((c: any) => c.courseId === courseId);
-        return cert?.id ?? null;
-      }
-      const { id } = await createCertificate({
-        studentId: user.id,
-        studentName: user.name,
-        courseId,
-        courseName: course?.title ?? "",
-        courseDuration: course?.duration ?? "",
-        completionDate: new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }),
-        issuedBy: course?.teacherName ?? "JR Code Crafterz",
-      });
-      return id;
-    } catch (e) {
-      console.error("Certificate generation error:", e);
-      return null;
-    }
-  };
+
 
   const handleMarkComplete = async () => {
     if (!activeLesson || !user || markingComplete) return;
@@ -98,18 +73,15 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ courseI
       setCompletedLessons(newCompleted);
       toast.success("Lesson marked complete! ✓");
 
-      // Check if ALL lessons are now done → auto-generate certificate
+      // Check if ALL lessons are now done → show link to download demo certificate
       if (newCompleted.length >= lessons.length) {
-        const certId = await generateCert(newCompleted);
-        if (certId) {
-          toast.success(
-            <span>
-              🎉 Course complete! Your certificate is ready.{" "}
-              <a href={`/certificates/${certId}`} className="underline font-semibold">Download it here →</a>
-            </span>,
-            { duration: 8000 }
-          );
-        }
+        toast.success(
+          <span>
+            🎉 Course complete! Your certificate is ready.{" "}
+            <a href="/assets/democertificate.jpg" target="_blank" rel="noopener noreferrer" className="underline font-semibold">View it here →</a>
+          </span>,
+          { duration: 8000 }
+        );
       }
 
       // Auto-advance to next lesson
@@ -123,34 +95,7 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ courseI
     }
   };
 
-  /** Test button: instantly generate certificate (for testing when all lessons done or no lessons) */
-  const handleTestCertificate = async () => {
-    if (!user || !course || generatingCert) return;
-    setGeneratingCert(true);
-    try {
-      const existing = await getCertificatesByStudent(user.id);
-      const existingCert = existing.find((c: any) => c.courseId === courseId);
-      if (existingCert) {
-        router.push(`/certificates/${existingCert.id}`);
-        return;
-      }
-      const { id } = await createCertificate({
-        studentId: user.id,
-        studentName: user.name,
-        courseId,
-        courseName: course?.title ?? "",
-        courseDuration: course?.duration ?? "",
-        completionDate: new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }),
-        issuedBy: course?.teacherName ?? "JR Code Crafterz",
-      });
-      toast.success("🎉 Certificate generated!");
-      router.push(`/certificates/${id}`);
-    } catch (e: any) {
-      toast.error("Failed: " + (e?.message ?? "Unknown error"));
-    } finally {
-      setGeneratingCert(false);
-    }
-  };
+
 
 
   const handleProjectSubmit = async (projectId: string) => {
@@ -246,18 +191,17 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ courseI
               ) : (
                 <Badge variant="success" className="gap-1 px-3 py-1.5"><CheckCircle2 className="w-3.5 h-3.5" /> Completed</Badge>
               )}
-              {/* Test button — visible always for easy cert testing */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleTestCertificate}
-                disabled={generatingCert}
-                className="gap-1.5 text-xs border-yellow-400 text-yellow-600 hover:bg-yellow-50"
-                title="Generate certificate now (for testing)"
+              {/* Link to view/download demo certificate */}
+              <a
+                href="/assets/democertificate.jpg"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs border border-yellow-400 text-yellow-600 hover:bg-yellow-50 px-3 py-1.5 rounded-xl font-bold transition-all shadow-sm"
+                title="View/Download Certificate"
               >
-                <Award className="w-3.5 h-3.5" />
-                {generatingCert ? "Generating…" : "Get Certificate"}
-              </Button>
+                <Award className="w-3.5 h-3.5 text-yellow-500" />
+                Get Certificate
+              </a>
             </div>
           </div>
         </div>
