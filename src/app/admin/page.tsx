@@ -26,6 +26,7 @@ import {
   createCertificate,
   getAllCertificates,
   deleteCertificate,
+  uploadCertificateFile,
   getAllSchedules,
   getAllQuizzes,
   getAllAttendance,
@@ -71,7 +72,7 @@ const Youtube = (props: React.SVGProps<SVGSVGElement>) => (
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 
-type Tab = "overview" | "leads" | "students" | "teachers" | "courses" | "enrollments" | "payments" | "cms" | "search";
+type Tab = "overview" | "leads" | "students" | "teachers" | "courses" | "enrollments" | "payments" | "cms" | "search" | "certificates";
 
 const ADMIN_PASSWORD = "admin123";
 
@@ -186,6 +187,10 @@ export default function AdminPage() {
   // Certificate Issuance
   const [manualCertStudentId, setManualCertStudentId] = useState("");
   const [manualCertCourseId, setManualCertCourseId] = useState("");
+  const [manualCertUrl, setManualCertUrl] = useState("");
+  const [manualCertDuration, setManualCertDuration] = useState("Self-Paced");
+  const [manualCertCompletionDate, setManualCertCompletionDate] = useState(new Date().toISOString().split("T")[0]);
+  const [uploadingCertFile, setUploadingCertFile] = useState(false);
   const [issuingCert, setIssuingCert] = useState(false);
   const [showTeacherPw, setShowTeacherPw] = useState(false);
 
@@ -460,6 +465,22 @@ export default function AdminPage() {
     }
   };
 
+  const handleCertFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingCertFile(true);
+    try {
+      const url = await uploadCertificateFile(file, manualCertStudentId || "admin_uploads");
+      setManualCertUrl(url);
+      toast.success("Certificate uploaded successfully!");
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Firebase Storage upload failed. You can paste the URL manually instead.");
+    } finally {
+      setUploadingCertFile(false);
+    }
+  };
+
   const handleManualCertSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!manualCertStudentId || !manualCertCourseId) {
@@ -477,11 +498,16 @@ export default function AdminPage() {
         studentName: student.name,
         courseId: manualCertCourseId,
         courseName: course.title,
-        completionDate: new Date().toISOString().split("T")[0],
+        courseDuration: manualCertDuration,
+        completionDate: manualCertCompletionDate,
+        certificateUrl: manualCertUrl,
       });
-      toast.success(`Certificate ${certNumber} generated successfully!`);
+      toast.success(`Certificate ${certNumber} issued successfully!`);
       setManualCertStudentId("");
       setManualCertCourseId("");
+      setManualCertUrl("");
+      setManualCertDuration("Self-Paced");
+      setManualCertCompletionDate(new Date().toISOString().split("T")[0]);
       fetchAll();
     } catch (err: any) {
       toast.error("Failed to generate certificate: " + err.message);
@@ -517,6 +543,7 @@ export default function AdminPage() {
     { id: "courses", label: "Courses", icon: BookOpen, count: courses.length },
     { id: "enrollments", label: "Enrollments", icon: ShoppingBag, count: pendingEnrollments.length > 0 ? `Req: ${pendingEnrollments.length}` : approvedEnrollments.length, highlight: pendingEnrollments.length > 0 },
     { id: "payments", label: "Payments Logs", icon: IndianRupee },
+    { id: "certificates", label: "Certificates", icon: Award, count: certificates.length },
     { id: "search", label: "Search Profiles", icon: Search },
     { id: "cms", label: "CMS & Settings", icon: Activity },
   ];
@@ -1728,6 +1755,176 @@ export default function AdminPage() {
                           </div>
                         </CardContent>
                       </Card>
+                    </motion.div>
+                  )}
+
+                  {tab === "certificates" && (
+                    <motion.div variants={fadeInUp} className="space-y-6 text-left">
+                      <div>
+                        <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">Issue & Manage Certificates</h2>
+                        <p className="text-xs text-slate-400 font-semibold mt-0.5">Upload custom certificates or issue platform completion certificates to students.</p>
+                      </div>
+
+                      <div className="grid lg:grid-cols-3 gap-8">
+                        {/* Form */}
+                        <Card className="border-slate-100 shadow-sm bg-white lg:col-span-1 h-fit">
+                          <CardContent className="p-6">
+                            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4">Issue New Certificate</h3>
+                            <form onSubmit={handleManualCertSubmit} className="space-y-4">
+                              <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-slate-500 uppercase">Select Student</label>
+                                <select
+                                  value={manualCertStudentId}
+                                  onChange={(e) => setManualCertStudentId(e.target.value)}
+                                  className="w-full rounded-xl border border-slate-200 p-3 text-sm font-medium focus:outline-none focus:border-orange-500 bg-white"
+                                  required
+                                >
+                                  <option value="">Choose Student...</option>
+                                  {students.map((s) => (
+                                    <option key={s.id} value={s.id}>
+                                      {s.name} ({s.email})
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-slate-500 uppercase">Select Course</label>
+                                <select
+                                  value={manualCertCourseId}
+                                  onChange={(e) => setManualCertCourseId(e.target.value)}
+                                  className="w-full rounded-xl border border-slate-200 p-3 text-sm font-medium focus:outline-none focus:border-orange-500 bg-white"
+                                  required
+                                >
+                                  <option value="">Choose Course...</option>
+                                  {courses.map((c) => (
+                                    <option key={c.id} value={c.id}>
+                                      {c.title}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-slate-500 uppercase">Course Duration</label>
+                                <input
+                                  type="text"
+                                  value={manualCertDuration}
+                                  onChange={(e) => setManualCertDuration(e.target.value)}
+                                  className="w-full rounded-xl border border-slate-200 p-3 text-sm font-medium focus:outline-none focus:border-orange-500"
+                                  placeholder="e.g. 30 Hours, Self-Paced"
+                                />
+                              </div>
+
+                              <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-slate-500 uppercase">Completion Date</label>
+                                <input
+                                  type="date"
+                                  value={manualCertCompletionDate}
+                                  onChange={(e) => setManualCertCompletionDate(e.target.value)}
+                                  className="w-full rounded-xl border border-slate-200 p-3 text-sm font-medium focus:outline-none focus:border-orange-500"
+                                  required
+                                />
+                              </div>
+
+                              <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-slate-500 uppercase">Upload Certificate File</label>
+                                <div className="border-2 border-dashed border-slate-200 hover:border-orange-500/50 transition-colors rounded-xl p-4 text-center cursor-pointer relative bg-slate-50/50">
+                                  <input
+                                    type="file"
+                                    onChange={handleCertFileChange}
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                    accept="image/*,application/pdf"
+                                    disabled={uploadingCertFile || !manualCertStudentId}
+                                  />
+                                  <div className="text-xs font-bold text-slate-500">
+                                    {uploadingCertFile ? (
+                                      <span className="text-orange-500 animate-pulse">Uploading file...</span>
+                                    ) : !manualCertStudentId ? (
+                                      <span className="text-slate-400">⚠️ Select a student first to upload</span>
+                                    ) : (
+                                      <span>📂 Click or drag certificate image/pdf</span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-slate-500 uppercase">Certificate Image/File URL</label>
+                                <input
+                                  type="text"
+                                  value={manualCertUrl}
+                                  onChange={(e) => setManualCertUrl(e.target.value)}
+                                  className="w-full rounded-xl border border-slate-200 p-3 text-sm font-medium focus:outline-none focus:border-orange-500"
+                                  placeholder="Uploaded URL or manual link..."
+                                />
+                              </div>
+
+                              <Button
+                                type="submit"
+                                disabled={issuingCert || uploadingCertFile}
+                                className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl mt-2 transition-colors shadow-md"
+                              >
+                                {issuingCert ? "Issuing..." : "Issue Certificate"}
+                              </Button>
+                            </form>
+                          </CardContent>
+                        </Card>
+
+                        {/* List */}
+                        <Card className="border-slate-100 shadow-sm bg-white lg:col-span-2">
+                          <CardContent className="p-6">
+                            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4">Issued Certificates ({certificates.length})</h3>
+                            <div className="overflow-x-auto">
+                              {certificates.length === 0 ? (
+                                <div className="text-center py-12 text-slate-400 font-semibold text-sm">
+                                  No certificates issued yet.
+                                </div>
+                              ) : (
+                                <table className="w-full text-sm text-left">
+                                  <thead>
+                                    <tr className="border-b border-slate-100 text-slate-400 text-xs uppercase font-bold">
+                                      <th className="pb-3">Student</th>
+                                      <th className="pb-3">Course</th>
+                                      <th className="pb-3">Cert Number</th>
+                                      <th className="pb-3">Date</th>
+                                      <th className="pb-3 text-right">Actions</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {certificates.map((cert: any) => (
+                                      <tr key={cert.id} className="border-b border-slate-50 hover:bg-slate-50/50">
+                                        <td className="py-3.5 font-semibold text-slate-850">{cert.studentName}</td>
+                                        <td className="py-3.5 font-medium text-slate-600">{cert.courseName}</td>
+                                        <td className="py-3.5 font-mono text-xs text-orange-600 font-bold">{cert.certNumber}</td>
+                                        <td className="py-3.5 text-slate-500 text-xs font-semibold">{cert.completionDate}</td>
+                                        <td className="py-3.5 text-right space-x-2">
+                                          {cert.certificateUrl && (
+                                            <a
+                                              href={cert.certificateUrl}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="inline-flex items-center gap-1 text-xs text-blue-500 hover:text-blue-600 font-bold"
+                                            >
+                                              View
+                                            </a>
+                                          )}
+                                          <button
+                                            onClick={() => handleDeleteCert(cert.id)}
+                                            className="text-xs text-red-500 hover:text-red-600 font-bold"
+                                          >
+                                            Delete
+                                          </button>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
                     </motion.div>
                   )}
 

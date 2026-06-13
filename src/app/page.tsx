@@ -377,16 +377,7 @@ export default function LandingPage() {
     }
   };
 
-  // Sample Certificate download directly downloads the demo image
-  const handleDownloadSampleCert = () => {
-    const link = document.createElement("a");
-    link.href = "/assets/democertificate.jpg";
-    link.download = "jrcodecrafterz-sample-certificate.jpg";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success("Sample certificate downloaded successfully!");
-  };
+
 
   return (
     <div className="min-h-screen text-slate-800 bg-white selection:bg-orange-100 selection:text-orange-900 overflow-x-hidden">
@@ -922,14 +913,7 @@ export default function LandingPage() {
               </div>
             </div>
             
-            <div className="pt-4">
-              <Button 
-                onClick={handleDownloadSampleCert}
-                className="bg-slate-900 hover:bg-slate-800 text-white font-bold px-6 py-5 rounded-2xl shadow-lg gap-2"
-              >
-                <Download className="w-4 h-4" /> Download Sample Certificate
-              </Button>
-            </div>
+
           </motion.div>
 
           {/* Certificate Miniature Image Preview */}
@@ -1076,9 +1060,7 @@ export default function LandingPage() {
                 </div>
               )}
               <div>
-                <Badge className={`font-bold text-[10px] mb-6 uppercase tracking-wider ${
-                  plan.isFeatured ? "bg-orange-500 text-white" : "bg-slate-100 text-slate-600 border border-slate-200"
-                }`}>
+                <Badge className="bg-orange-500 text-white border-orange-500 font-bold text-[10px] mb-6 uppercase tracking-wider">
                   {plan.title}
                 </Badge>
                 <div className="mb-6">
@@ -1161,11 +1143,21 @@ export default function LandingPage() {
               <motion.div 
                 key={idx}
                 variants={fadeInUp}
-                whileHover={{ y: -5, boxShadow: "0 10px 25px -10px rgba(0,0,0,0.08)" }}
-                className="bg-white p-8 rounded-3xl border border-slate-150 shadow-sm relative overflow-hidden group hover:border-orange-200 transition-all duration-300 text-left"
+                whileHover={{ 
+                  y: -8, 
+                  boxShadow: "0 20px 40px -15px rgba(234, 88, 12, 0.15)", 
+                  borderColor: "rgba(234, 88, 12, 0.3)" 
+                }}
+                className="bg-white p-8 rounded-3xl border border-slate-100 text-left flex flex-col group relative overflow-hidden transition-all duration-300"
               >
+                <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-orange-400 to-amber-500" />
+                <div 
+                  className="absolute -right-8 -bottom-8 w-24 h-24 rounded-full opacity-10 blur-xl group-hover:scale-150 transition-all duration-300"
+                  style={{ background: "var(--accent)" }}
+                />
+
                 <div className="flex items-center gap-4 mb-4">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold bg-orange-50 text-orange-500 border border-orange-100">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold bg-orange-50 text-orange-500 border border-orange-100 group-hover:bg-orange-500 group-hover:text-white transition-colors duration-300 flex-shrink-0">
                     {idx + 1}
                   </div>
                   <h3 className="text-lg font-bold text-slate-900 group-hover:text-orange-500 transition-colors">

@@ -50,6 +50,16 @@ export default function CertificateViewPage({ params }: { params: Promise<{ cert
   }, [params]);
 
   const handleDownload = async () => {
+    if (cert && cert.certificateUrl) {
+      const link = document.createElement("a");
+      link.href = cert.certificateUrl;
+      link.target = "_blank";
+      link.download = `JRCC-${cert.studentName.replace(/\s+/g, "_")}-${cert.courseName.replace(/\s+/g, "_")}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      return;
+    }
     if (!certRef.current || !cert) return;
     setDownloading(true);
     try {
@@ -98,12 +108,26 @@ export default function CertificateViewPage({ params }: { params: Promise<{ cert
           style={{ background: "linear-gradient(135deg, #f97316, #ea580c)" }}
         >
           {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-          {downloading ? "Generating PDF…" : "Download Certificate"}
+          {cert.certificateUrl ? "Download File" : downloading ? "Generating PDF…" : "Download Certificate"}
         </Button>
       </div>
 
       {/* ─────────────────── CERTIFICATE ─────────────────── */}
-      <div
+      {cert.certificateUrl ? (
+        <div className="max-w-4xl mx-auto flex flex-col items-center justify-center p-8 bg-slate-900/40 border border-white/10 rounded-3xl backdrop-blur-xl shadow-2xl">
+          <img 
+            src={cert.certificateUrl} 
+            alt={`Certificate for ${cert.studentName}`} 
+            className="w-full max-h-[70vh] object-contain rounded-2xl border border-white/10 shadow-2xl"
+          />
+          <div className="mt-8 flex flex-col items-center text-center">
+            <h2 className="text-white font-extrabold text-2xl tracking-tight">{cert.courseName}</h2>
+            <p className="text-slate-400 text-sm mt-2 font-semibold">Awarded to <span className="text-orange-400">{cert.studentName}</span> on {cert.completionDate}</p>
+            <p className="text-slate-500 text-xs mt-3 font-mono border border-white/5 bg-white/5 px-3 py-1.5 rounded-lg">Verification ID: {cert.certNumber}</p>
+          </div>
+        </div>
+      ) : (
+        <div
         ref={certRef}
         style={{
           width: "1122px",
@@ -426,6 +450,7 @@ export default function CertificateViewPage({ params }: { params: Promise<{ cert
         </div>
 
       </div>
+      )}
       {/* ─────────────────────────────────── */}
 
       <p className="text-center text-xs mt-5" style={{ color: "rgba(255,255,255,0.25)" }}>

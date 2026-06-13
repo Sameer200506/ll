@@ -11,7 +11,8 @@ import {
   where,
   arrayUnion,
 } from "firebase/firestore";
-import { db } from "./firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db, storage } from "./firebase";
 
 // ─── USERS ────────────────────────────────────────────────────────────────────
 
@@ -433,6 +434,12 @@ export async function markNotificationRead(notificationId: string) {
 
 // ─── CERTIFICATES ─────────────────────────────────────────────────────────────
 
+export async function uploadCertificateFile(file: File, studentId: string): Promise<string> {
+  const fileRef = ref(storage, `certificates/${studentId}/${Date.now()}_${file.name}`);
+  await uploadBytes(fileRef, file);
+  return await getDownloadURL(fileRef);
+}
+
 export async function createCertificate(data: {
   studentId: string;
   studentName: string;
@@ -441,6 +448,7 @@ export async function createCertificate(data: {
   courseDuration?: string;
   completionDate: string;
   issuedBy?: string;
+  certificateUrl?: string;
 }) {
   const settings = await getSiteSettings();
   const prefix = settings?.certPrefix || "JRCC";

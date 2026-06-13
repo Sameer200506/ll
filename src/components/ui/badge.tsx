@@ -26,21 +26,34 @@ export interface BadgeProps
     VariantProps<typeof badgeVariants> {}
 
 function Badge({ className, variant, style, ...props }: BadgeProps) {
-  const defaultStyle =
-    variant === "default" || !variant
-      ? { background: "var(--accent)", ...style }
-      : variant === "secondary"
-      ? { background: "var(--surface-2)", color: "var(--text-secondary)", ...style }
-      : variant === "success"
-      ? { background: "var(--success)", ...style }
-      : variant === "warning"
-      ? { background: "var(--warning)", ...style }
-      : variant === "danger"
-      ? { background: "var(--danger)", ...style }
-      : style;
+  const hasBg = className && /\bbg-\S+/.test(className);
+  
+  // Helper to determine if className has a text color class (excluding text size classes)
+  const hasTextColor = React.useMemo(() => {
+    if (!className) return false;
+    const matches = className.match(/\btext-\S+/g);
+    if (!matches) return false;
+    const sizePattern = /^text-(xs|sm|base|md|lg|xl|[2-9]xl|\[\d+(?:px|rem|em|pt)\])$/;
+    return matches.some(m => !sizePattern.test(m));
+  }, [className]);
+
+  let inlineStyle: React.CSSProperties = { ...style };
+
+  if (variant === "default" || !variant) {
+    if (!hasBg) inlineStyle.background = "var(--accent)";
+  } else if (variant === "secondary") {
+    if (!hasBg) inlineStyle.background = "var(--surface-2)";
+    if (!hasTextColor) inlineStyle.color = "var(--text-secondary)";
+  } else if (variant === "success") {
+    if (!hasBg) inlineStyle.background = "var(--success)";
+  } else if (variant === "warning") {
+    if (!hasBg) inlineStyle.background = "var(--warning)";
+  } else if (variant === "danger") {
+    if (!hasBg) inlineStyle.background = "var(--danger)";
+  }
 
   return (
-    <div className={cn(badgeVariants({ variant }), className)} style={defaultStyle} {...props} />
+    <div className={cn(badgeVariants({ variant }), className)} style={inlineStyle} {...props} />
   );
 }
 

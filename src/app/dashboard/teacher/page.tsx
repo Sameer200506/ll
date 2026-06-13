@@ -340,7 +340,12 @@ export default function TeacherOverview() {
                           <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${color}15` }}>
                             <Icon className="w-5 h-5" style={{ color }} />
                           </div>
-                          <Badge className="bg-slate-50 text-slate-400 border border-slate-150 text-[9px] font-bold">Metrics</Badge>
+                          <Badge 
+                            className="text-[9px] font-bold text-white border-transparent"
+                            style={{ background: color }}
+                          >
+                            Metrics
+                          </Badge>
                         </div>
                         <p className="text-2xl font-black text-slate-900">{loading ? "–" : value}</p>
                         <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mt-1">{label}</p>
@@ -431,7 +436,7 @@ export default function TeacherOverview() {
                                   </div>
                                 </div>
                               </div>
-                              <Badge className="bg-orange-100 text-orange-600 hover:bg-orange-100 border border-orange-200/40 text-[9px] font-bold">Active Meet</Badge>
+                              <Badge className="bg-orange-500 hover:bg-orange-600 text-white border-transparent text-[9px] font-bold">Active Meet</Badge>
                             </CardContent>
                           </Card>
                         ))}
