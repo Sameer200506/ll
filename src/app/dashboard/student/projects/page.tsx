@@ -63,7 +63,7 @@ export default function StudentProjectsPage() {
   };
 
   return (
-    <DashboardLayout title="My Projects" description="View and submit all your assigned projects across courses.">
+    <DashboardLayout title="My Projects" description="View and submit all your assigned projects across courses." allowedRoles={["student"]}>
       {/* Filter tabs */}
       <div className="flex flex-wrap gap-2 mb-6">
         {[

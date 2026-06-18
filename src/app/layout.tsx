@@ -7,13 +7,17 @@ import { Toaster } from "sonner";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://jrcodecrafterz.com"),
   title: "JRCODE CRAFTERZ | Modern Learning Platform",
   description: "Learn, grow, and connect with JRCODE CRAFTERZ — your all-in-one LMS with live coding classes, projects, quizzes, and AI-powered learning for Grades 4-12.",
   keywords: "LMS, e-learning, online courses, JRCODE CRAFTERZ, programming, coding, live classes, education, kids coding, python, javascript",
+  alternates: {
+    canonical: "/",
+  },
   openGraph: {
     title: "JRCODE CRAFTERZ - Master Coding Online",
     description: "The ultimate modern platform for learning coding with live classes, interactive quizzes, and project-based learning for Grades 4–12.",
-    url: "https://jrcodecrafterz.in",
+    url: "https://jrcodecrafterz.com",
     siteName: "JRCODE CRAFTERZ",
     images: [
       {
@@ -25,6 +29,12 @@ export const metadata: Metadata = {
     ],
     locale: "en_IN",
     type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "JRCODE CRAFTERZ - Master Coding Online",
+    description: "The ultimate modern platform for learning coding with live classes, interactive quizzes, and project-based learning for Grades 4–12.",
+    images: ["/assets/banner.png"],
   },
   icons: {
     icon: "/assets/Favicon.png",

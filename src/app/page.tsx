@@ -378,31 +378,7 @@ export default function LandingPage() {
     (c) => c.category === activeCategory
   );
 
-  // Fallback mock items for special courses so it never looks blank
-  const fallbackSpecialCourses: Record<string, any[]> = {
-    "Computer Basics": [
-      { id: "cb1", title: "Computer Basics & Operating Systems", description: "Learn visual navigation in Windows/MacOS, file explorer hierarchies, and security safety guidelines.", teacherName: "Senior Mentor", price: 0 },
-      { id: "cb2", title: "Mastering Speed Typing & Keyboard Shortcuts", description: "Learn standard ergonomics, finger placements, and quick navigation hotkeys.", teacherName: "Typing Tutor", price: 0 }
-    ],
-    "MS Office": [
-      { id: "mso1", title: "Excel Spreadsheet Formulas & Budgets", description: "Master rows, columns, SUM, AVERAGE, logical checks, graphs, and simple spreadsheets.", teacherName: "Admin Specialist", price: 0 },
-      { id: "mso2", title: "Word Documents & PowerPoint Slide Design", description: "Build clean reports, resumes, letters, and high-impact slides.", teacherName: "Presentation Expert", price: 0 }
-    ],
-    "AI Tools": [
-      { id: "ai1", title: "ChatGPT Prompt Engineering for Beginners", description: "Write structured prompts, generate stories, build resumes, and speed up research tasks.", teacherName: "AI Specialist", price: 0 },
-      { id: "ai2", title: "Midjourney & AI Image Creation", description: "Learn visual text prompts to create digital art, icons, and illustrations.", teacherName: "Creative Director", price: 0 }
-    ],
-    "Math Basics": [
-      { id: "math1", title: "Mental Math & Logic Puzzles", description: "Master fractions, percentages, basic ratios, and visual grid puzzles.", teacherName: "Math Tutor", price: 0 }
-    ],
-    "Projects": [
-      { id: "proj1", title: "Visual Scratch Animation Storyteller", description: "Build animated sequences, interactive cards, and comic strips.", teacherName: "Creative Developer", price: 0 }
-    ]
-  };
-
-  const activeSpecialCourses = specialCoursesFiltered.length > 0
-    ? specialCoursesFiltered
-    : (fallbackSpecialCourses[activeCategory] || []);
+  const activeSpecialCourses = specialCoursesFiltered;
 
   const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -469,7 +445,6 @@ export default function LandingPage() {
           <button onClick={() => handleScrollToSection("highlights")} className="hover:text-orange-500 transition-colors cursor-pointer">Highlights</button>
           <button onClick={() => handleScrollToSection("special-courses")} className="hover:text-orange-500 transition-colors cursor-pointer">Special Courses</button>
           <button onClick={() => handleScrollToSection("curriculum")} className="hover:text-orange-500 transition-colors cursor-pointer">Curriculum</button>
-          <button onClick={() => handleScrollToSection("certificate-preview")} className="hover:text-orange-500 transition-colors cursor-pointer">Certificates</button>
           <button onClick={() => handleScrollToSection("pricing")} className="hover:text-orange-500 transition-colors cursor-pointer">Pricing</button>
           <button onClick={() => handleScrollToSection("contact")} className="hover:text-orange-500 transition-colors cursor-pointer">Contact</button>
         </div>
@@ -778,6 +753,12 @@ export default function LandingPage() {
                 </CardContent>
               </Card>
             ))}
+            {activeSpecialCourses.length === 0 && (
+              <div className="col-span-full text-center py-16 border border-slate-100 rounded-3xl bg-slate-50/30">
+                <BookOpen className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                <p className="text-sm font-semibold text-slate-400">No courses listed in this category yet.</p>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -954,61 +935,6 @@ export default function LandingPage() {
                 <span>v3.4 Release</span>
               </div>
             </div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Certificate Preview Section */}
-      <section id="certificate-preview" className="py-24 px-6 bg-white relative z-10 border-b border-slate-100">
-        <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-12 items-center text-left">
-          
-          <motion.div 
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={slideInLeft}
-            className="space-y-6"
-          >
-            <Badge className="bg-orange-100 text-orange-600 border border-orange-200 font-bold py-1 px-3 rounded-full text-xs">
-              Earn Credentials
-            </Badge>
-            <h2 className="text-3xl md:text-5xl font-black text-slate-900 leading-tight tracking-tight">
-              Get Certified Upon Course Completion
-            </h2>
-            <p className="text-slate-600 font-semibold leading-relaxed">
-              Every graduate receives a verified software portfolio certificate carrying a unique verification number dynamically registered in our control database.
-            </p>
-            <div className="pt-2 flex flex-col gap-3">
-              <div className="flex items-center gap-2.5">
-                <CheckCircle2 className="w-5 h-5 text-orange-500" />
-                <span className="font-bold text-slate-700 text-sm">Dynamic serial verification numbers</span>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <CheckCircle2 className="w-5 h-5 text-orange-500" />
-                <span className="font-bold text-slate-700 text-sm">Downloadable high-resolution PDFs</span>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <CheckCircle2 className="w-5 h-5 text-orange-500" />
-                <span className="font-bold text-slate-700 text-sm">Official authorization seal</span>
-              </div>
-            </div>
-            
-
-          </motion.div>
-
-          {/* Certificate Miniature Image Preview */}
-          <motion.div 
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={slideInRight}
-            className="relative flex justify-center bg-slate-950 p-4 rounded-3xl shadow-2xl border border-slate-800"
-          >
-            <img 
-              src="/assets/democertificate.jpg" 
-              alt="JRCODE CRAFTERZ Certificate of Completion" 
-              className="w-full max-w-lg rounded-2xl border border-slate-800 shadow-md object-contain"
-            />
           </motion.div>
         </div>
       </section>
@@ -1715,7 +1641,6 @@ export default function LandingPage() {
                   { id: "highlights", label: "Highlights" },
                   { id: "special-courses", label: "Special Courses" },
                   { id: "curriculum", label: "Curriculum" },
-                  { id: "certificate-preview", label: "Certificates" },
                   { id: "pricing", label: "Pricing" },
                   { id: "contact", label: "Contact" },
                 ].map((item) => (

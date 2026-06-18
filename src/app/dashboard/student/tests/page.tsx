@@ -42,7 +42,7 @@ export default function TestsPage() {
   const getResult = (quizId: string) => results.find((r: any) => r.quizId === quizId);
 
   return (
-    <DashboardLayout title="Tests & Quizzes" description="Test your knowledge and track your scores.">
+    <DashboardLayout title="Tests & Quizzes" description="Test your knowledge and track your scores." allowedRoles={["student"]}>
       {/* Results summary */}
       {results.length > 0 && (
         <div className="grid grid-cols-3 gap-4 mb-8">

@@ -9,7 +9,7 @@ import {
   Users, ClipboardList, Video, ShoppingBag,
   LogOut, FolderOpen, Radio, MessageCircle, Shield, Award, Download
 } from "lucide-react";
-import { getSiteSettings } from "@/lib/firestore";
+import { getSiteSettings, getApprovedEnrollmentsByUser } from "@/lib/firestore";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -107,12 +107,32 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
     });
   }, []);
 
+  const [hasPaid, setHasPaid] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    if (user.role !== "student") {
+      setHasPaid(true);
+      return;
+    }
+    getApprovedEnrollmentsByUser(user.id).then((enrollments) => {
+      setHasPaid(enrollments.length > 0);
+    });
+  }, [user]);
+
   const links =
     user?.role === "teacher"
       ? teacherLinks
       : user?.role === "admin"
       ? adminLinks
       : studentLinks;
+
+  const filteredLinks = links.filter((link) => {
+    if (user?.role === "student" && !hasPaid) {
+      return link.href === "/dashboard/student" || link.href === "/dashboard/student/browse";
+    }
+    return true;
+  });
 
   const handleLogout = async () => {
     await logout();
@@ -166,7 +186,7 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
         <p className="px-3 py-2 text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-secondary)" }}>
           {user?.role === "teacher" ? "Teaching" : user?.role === "admin" ? "Administration" : "Learning"}
         </p>
-        {links.map(({ href, label, icon: Icon }) => {
+        {filteredLinks.map(({ href, label, icon: Icon }) => {
           const isActive = pathname === href || (href !== "/dashboard/student" && href !== "/dashboard/teacher" && href !== "/admin" && pathname.startsWith(href));
           return (
             <Link

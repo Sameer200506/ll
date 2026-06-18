@@ -54,14 +54,14 @@ export default function QuizPlayerPage({ params }: { params: Promise<{ quizId: s
     toast.success(`Quiz submitted! Score: ${correct}/${questions.length}`);
   };
 
-  if (loading) return <DashboardLayout title="Quiz"><div className="skeleton h-64 rounded-2xl" /></DashboardLayout>;
-  if (!quiz) return <DashboardLayout title="Quiz Not Found"><p style={{ color: "var(--text-secondary)" }}>This quiz could not be found.</p></DashboardLayout>;
+  if (loading) return <DashboardLayout title="Quiz" allowedRoles={["student"]}><div className="skeleton h-64 rounded-2xl" /></DashboardLayout>;
+  if (!quiz) return <DashboardLayout title="Quiz Not Found" allowedRoles={["student"]}><p style={{ color: "var(--text-secondary)" }}>This quiz could not be found.</p></DashboardLayout>;
 
   const questions = quiz.questions || [];
   const pct = questions.length > 0 ? Math.round((score / questions.length) * 100) : 0;
 
   return (
-    <DashboardLayout title={quiz.title} description={`${course?.title ?? ""} · ${questions.length} questions`}>
+    <DashboardLayout title={quiz.title} description={`${course?.title ?? ""} · ${questions.length} questions`} allowedRoles={["student"]}>
       {submitted ? (
         // Results screen
         <div className="max-w-lg mx-auto text-center">

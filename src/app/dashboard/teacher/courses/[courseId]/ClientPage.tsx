@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
-  getCourse, updateCourse,
+  getCourse,
   getLessonsByCourse, addLesson, updateLesson, deleteLesson,
   getResourcesByCourse, addResource, deleteResource,
   getEnrollmentsByCourse, getAllUsers,
@@ -23,7 +23,7 @@ import {
 import {
   Plus, Trash2, PlayCircle, ArrowLeft, ExternalLink,
   Pencil, ChevronUp, ChevronDown, Link2, FileText,
-  Settings, Users, Save, Check, X,
+  Users, Save, Check, X,
   Play, File, Globe, Presentation,
   ClipboardList, CheckCircle2, BookOpen, FolderOpen, Send, FolderPlus
 } from "lucide-react";
@@ -229,10 +229,6 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
   const [resForm, setResForm] = useState({ name: "", url: "", type: "link" });
   const [addingRes, setAddingRes] = useState(false);
 
-  // settings
-  const [settingsForm, setSettingsForm] = useState({ title: "", description: "", thumbnailUrl: "", price: "0", curriculumPdfUrl: "", replayUrl: "" });
-  const [savingSettings, setSavingSettings] = useState(false);
-  const [settingsSaved, setSettingsSaved] = useState(false);
   const [certificates, setCertificates] = useState<any[]>([]);
   const [recommendingCert, setRecommendingCert] = useState<string | null>(null);
 
@@ -276,14 +272,6 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
     setQuizzes(q);
     setProjects(projArr);
     setCertificates(certs.filter((cert: any) => cert.courseId === courseId));
-    setSettingsForm({
-      title: c?.title ?? "",
-      description: c?.description ?? "",
-      thumbnailUrl: c?.thumbnailUrl ?? "",
-      price: String(c?.price ?? 0),
-      curriculumPdfUrl: c?.curriculumPdfUrl ?? "",
-      replayUrl: c?.replayUrl ?? "",
-    });
     const enrollments = await getEnrollmentsByCourse(courseId);
     if (enrollments.length > 0) {
       const allUsers = await getAllUsers();
@@ -404,27 +392,6 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
     toast.success("Resource removed");
   };
 
-  // ── SETTINGS ──
-
-  const handleSaveSettings = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSavingSettings(true);
-    try {
-      await updateCourse(courseId, {
-        title: settingsForm.title,
-        description: settingsForm.description,
-        thumbnailUrl: settingsForm.thumbnailUrl,
-        price: parseFloat(settingsForm.price) || 0,
-        curriculumPdfUrl: settingsForm.curriculumPdfUrl,
-        replayUrl: settingsForm.replayUrl,
-      });
-      setCourse((prev: any) => ({ ...prev, ...settingsForm, price: parseFloat(settingsForm.price) || 0 }));
-      toast.success("Course updated!");
-      setSettingsSaved(true);
-      setTimeout(() => setSettingsSaved(false), 2000);
-    } catch { toast.error("Failed to save"); }
-    finally { setSavingSettings(false); }
-  };
 
   // ── Build interleaved curriculum list ──
   // Each entry is either { type: "lesson", data } or { type: "quiz", data }
@@ -451,7 +418,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
   // ─────────────────────────────────────────────────────────────────────────────
 
   return (
-    <DashboardLayout title={course?.title ?? "Course Editor"} description="Manage all aspects of your course.">
+    <DashboardLayout title={course?.title ?? "Course Editor"} description="Manage all aspects of your course." allowedRoles={["teacher", "admin"]}>
       <Link href="/dashboard/teacher/courses" className="inline-flex items-center gap-2 mb-6 text-sm hover:underline" style={{ color: "var(--text-secondary)" }}>
         <ArrowLeft className="w-4 h-4" /> Back to Courses
       </Link>
@@ -503,9 +470,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
           <TabsTrigger value="projects" className="gap-2">
             <FolderOpen className="w-4 h-4" /> Projects
           </TabsTrigger>
-          <TabsTrigger value="settings" className="gap-2">
-            <Settings className="w-4 h-4" /> Settings
-          </TabsTrigger>
+
           <TabsTrigger value="students" className="gap-2">
             <Users className="w-4 h-4" /> Students
           </TabsTrigger>
@@ -774,45 +739,6 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
           )}
         </TabsContent>
 
-        {/* ══════════════════ SETTINGS TAB ══════════════════ */}
-        <TabsContent value="settings">
-          <div className="max-w-xl">
-            <h2 className="text-base font-semibold mb-1">Course Settings</h2>
-            <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>Edit your course details — changes are reflected immediately.</p>
-            <form onSubmit={handleSaveSettings} className="space-y-5">
-              <div className="space-y-1.5">
-                <Label>Course Title *</Label>
-                <Input placeholder="e.g. Complete Python Bootcamp" value={settingsForm.title} onChange={(e) => setSettingsForm({ ...settingsForm, title: e.target.value })} required />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Description</Label>
-                <Textarea placeholder="What will students learn?" value={settingsForm.description} onChange={(e) => setSettingsForm({ ...settingsForm, description: e.target.value })} rows={4} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Thumbnail URL</Label>
-                <Input placeholder="https://… (image URL)" value={settingsForm.thumbnailUrl} onChange={(e) => setSettingsForm({ ...settingsForm, thumbnailUrl: e.target.value })} />
-                {settingsForm.thumbnailUrl && (
-                  <img src={settingsForm.thumbnailUrl} alt="preview" className="mt-2 rounded-xl w-full max-h-44 object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                )}
-              </div>
-              <div className="space-y-1.5">
-                <Label>Price (₹)</Label>
-                <Input type="number" min="0" placeholder="0 for free" value={settingsForm.price} onChange={(e) => setSettingsForm({ ...settingsForm, price: e.target.value })} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Curriculum Syllabus PDF URL</Label>
-                <Input placeholder="https://… (link to curriculum PDF)" value={settingsForm.curriculumPdfUrl} onChange={(e) => setSettingsForm({ ...settingsForm, curriculumPdfUrl: e.target.value })} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Live Class Replay / Recorded Video URL</Label>
-                <Input placeholder="https://… (YouTube or Drive link for live recordings)" value={settingsForm.replayUrl} onChange={(e) => setSettingsForm({ ...settingsForm, replayUrl: e.target.value })} />
-              </div>
-              <Button type="submit" className="gap-2" disabled={savingSettings}>
-                {settingsSaved ? <><Check className="w-4 h-4" /> Saved!</> : <><Save className="w-4 h-4" /> {savingSettings ? "Saving…" : "Save Changes"}</>}
-              </Button>
-            </form>
-          </div>
-        </TabsContent>
 
         {/* ══════════════════ STUDENTS TAB ══════════════════ */}
         <TabsContent value="students">

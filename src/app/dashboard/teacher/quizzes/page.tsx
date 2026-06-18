@@ -90,7 +90,7 @@ export default function QuizzesPage() {
   const courseMap = Object.fromEntries(courses.map((c) => [c.id, c]));
 
   return (
-    <DashboardLayout title="Quiz Builder" description="Create MCQ quizzes for your courses.">
+    <DashboardLayout title="Quiz Builder" description="Create MCQ quizzes for your courses." allowedRoles={["teacher", "admin"]}>
       <div className="flex justify-end mb-6">
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>

@@ -95,7 +95,7 @@ export default function TeacherProjectsPage() {
   };
 
   return (
-    <DashboardLayout title="Projects" description="View and grade all student project submissions.">
+    <DashboardLayout title="Projects" description="View and grade all student project submissions." allowedRoles={["teacher", "admin"]}>
       {/* Filter + Search */}
       <div className="flex flex-wrap items-center gap-3 mb-6">
         <div className="flex flex-wrap gap-2">

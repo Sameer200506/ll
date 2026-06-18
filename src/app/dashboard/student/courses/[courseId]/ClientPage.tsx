@@ -113,13 +113,13 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ courseI
   };
 
   if (loading) return (
-    <DashboardLayout title="Course Player" description="Loading…">
+    <DashboardLayout title="Course Player" description="Loading…" allowedRoles={["student"]}>
       <div className="skeleton h-96 rounded-2xl" />
     </DashboardLayout>
   );
 
   if (!enrolled) return (
-    <DashboardLayout title={course?.title ?? "Course"} description="">
+    <DashboardLayout title={course?.title ?? "Course"} description="" allowedRoles={["student"]}>
       <Card>
         <CardContent className="pt-6 text-center py-20">
           <Lock className="w-12 h-12 mx-auto mb-4" style={{ color: "var(--text-secondary)" }} />
@@ -137,7 +137,7 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ courseI
   const videoId = activeLesson ? getYouTubeId(activeLesson.youtubeUrl || "") : null;
 
   return (
-    <DashboardLayout title={course?.title ?? "Course Player"} description={`by ${course?.teacherName}`}>
+    <DashboardLayout title={course?.title ?? "Course Player"} description={`by ${course?.teacherName}`} allowedRoles={["student"]}>
       <Link href="/dashboard/student/courses" className="inline-flex items-center gap-2 mb-6 text-sm hover:underline" style={{ color: "var(--text-secondary)" }}>
         <ArrowLeft className="w-4 h-4" /> Back to My Courses
       </Link>

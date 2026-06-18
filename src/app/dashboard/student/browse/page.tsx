@@ -203,7 +203,7 @@ export default function BrowsePage() {
                 <div className="flex flex-col items-center justify-center p-5 border border-slate-100 rounded-3xl bg-slate-50/50 mb-5">
                   <div className="w-72 h-72 rounded-2xl overflow-hidden border-2 border-orange-500/20 bg-white p-2 shadow-md relative">
                     <img
-                      src="/assets/upi_qr.png"
+                      src="/assets/upi_qr.jpg?v=2"
                       alt="UPI QR Code"
                       className="w-full h-full object-contain"
                     />

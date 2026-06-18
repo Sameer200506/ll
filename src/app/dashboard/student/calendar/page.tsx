@@ -41,7 +41,7 @@ export default function StudentCalendarPage() {
     .sort((a: any, b: any) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime());
 
   return (
-    <DashboardLayout title="Class Calendar" description="View and join your scheduled live classes.">
+    <DashboardLayout title="Class Calendar" description="View and join your scheduled live classes." allowedRoles={["student"]}>
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Calendar */}
         <div className="lg:col-span-2">

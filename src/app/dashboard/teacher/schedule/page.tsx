@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -22,6 +22,7 @@ export default function SchedulePage() {
   const [creating, setCreating] = useState(false);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ courseId: "", datetime: "", meetLink: "" });
+  const dateRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -71,7 +72,7 @@ export default function SchedulePage() {
   const past = schedules.filter((s) => isPast(new Date(s.datetime)));
 
   return (
-    <DashboardLayout title="Schedule Classes" description="Schedule live Google Meet sessions for your students.">
+    <DashboardLayout title="Schedule Classes" description="Schedule live Google Meet sessions for your students." allowedRoles={["teacher", "admin"]}>
       <div className="flex justify-end mb-6">
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
@@ -93,7 +94,27 @@ export default function SchedulePage() {
               </div>
               <div className="space-y-1.5">
                 <Label>Date & Time*</Label>
-                <Input type="datetime-local" value={form.datetime} onChange={(e) => setForm({ ...form, datetime: e.target.value })} required />
+                <div className="relative flex items-center">
+                  <Input 
+                    ref={dateRef}
+                    type="datetime-local" 
+                    value={form.datetime} 
+                    onChange={(e) => setForm({ ...form, datetime: e.target.value })} 
+                    className="pr-10"
+                    required 
+                  />
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      try { dateRef.current?.showPicker(); } catch (err) { console.error(err); }
+                    }}
+                    className="absolute right-3 text-slate-400 hover:text-orange-500 transition-colors cursor-pointer"
+                    title="Open calendar picker"
+                  >
+                    <Calendar className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label>Google Meet Link*</Label>

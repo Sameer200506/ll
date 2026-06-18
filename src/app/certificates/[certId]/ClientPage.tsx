@@ -37,7 +37,8 @@ export default function CertificateViewPage({ params }: { params: Promise<{ cert
       setLoading(false);
       try {
         const QRCode = (await import("qrcode")).default;
-        const url = await QRCode.toDataURL("https://www.jrcodecrafterz.com", {
+        const verificationUrl = `https://jrcodecrafterz.com/certificates/verify?num=${data.certNumber}`;
+        const url = await QRCode.toDataURL(verificationUrl, {
           width: 100,
           margin: 1,
           color: { dark: "#ffffff", light: "#0b0f1a" },

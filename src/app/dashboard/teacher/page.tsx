@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -62,6 +62,7 @@ export default function TeacherOverview() {
   const [schedCourseId, setSchedCourseId] = useState("");
   const [schedDate, setSchedDate] = useState("");
   const [schedLink, setSchedLink] = useState("");
+  const schedDateRef = useRef<HTMLInputElement>(null);
 
   // Assignment Form state
   const [assignCourseId, setAssignCourseId] = useState("");
@@ -101,21 +102,29 @@ export default function TeacherOverview() {
     setAllStudentsList(studentsMap);
 
     let studentSet = new Set<string>();
-    let earnings = 0;
     const perCourse: any[] = [];
+
+    // Filter schedules to find classes that have already been conducted/taken (datetime in past or present)
+    const classesTakenTotal = scheds.filter((s: any) => s.datetime && new Date(s.datetime) <= new Date()).length;
+    const earnings = classesTakenTotal * 200;
 
     await Promise.all(myCourses.map(async (c: any) => {
       const enr = await getEnrollmentsByCourse(c.id);
-      enr.forEach((e: any) => studentSet.add(e.userId));
-      const courseRevenue = enr.length * (c.price || 0);
-      earnings += courseRevenue;
+      // Filter enrollments to only include active/existing students
+      const activeEnrollments = enr.filter((e: any) => studentsMap.some((s: any) => s.id === e.userId));
+      activeEnrollments.forEach((e: any) => studentSet.add(e.userId));
+
+      const courseClassesTaken = scheds.filter((s: any) => s.courseId === c.id && s.datetime && new Date(s.datetime) <= new Date()).length;
+      const courseRevenue = courseClassesTaken * 200;
+
       perCourse.push({
         id: c.id,
         title: c.title,
         price: c.price || 0,
-        enrolled: enr.length,
+        enrolled: activeEnrollments.length,
+        classesTaken: courseClassesTaken,
         revenue: courseRevenue,
-        studentIds: enr.map((e: any) => e.userId)
+        studentIds: activeEnrollments.map((e: any) => e.userId)
       });
     }));
 
@@ -469,7 +478,7 @@ export default function TeacherOverview() {
                               <div className="min-w-0">
                                 <p className="text-sm font-bold text-slate-800 truncate">{ce.title}</p>
                                 <p className="text-xs text-slate-400 font-semibold mt-0.5">
-                                  {ce.enrolled} student{ce.enrolled !== 1 ? "s" : ""} · {ce.price > 0 ? `₹${ce.price}/student` : "Free Program"}
+                                  {ce.classesTaken} class{ce.classesTaken !== 1 ? "es" : ""} conducted · ₹200 / class
                                 </p>
                               </div>
                             </div>
@@ -504,12 +513,26 @@ export default function TeacherOverview() {
 
                     <div>
                       <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Date &amp; Start Time</label>
-                      <input 
-                        type="datetime-local" 
-                        value={schedDate}
-                        onChange={(e) => setSchedDate(e.target.value)}
-                        className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-semibold"
-                      />
+                      <div className="relative flex items-center">
+                        <input 
+                          ref={schedDateRef}
+                          type="datetime-local" 
+                          value={schedDate}
+                          onChange={(e) => setSchedDate(e.target.value)}
+                          className="w-full px-3 py-2.5 pr-10 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-semibold"
+                        />
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            try { schedDateRef.current?.showPicker(); } catch (err) { console.error(err); }
+                          }}
+                          className="absolute right-3 text-slate-400 hover:text-orange-500 transition-colors cursor-pointer"
+                          title="Open calendar picker"
+                        >
+                          <Calendar className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
 
                     <div>

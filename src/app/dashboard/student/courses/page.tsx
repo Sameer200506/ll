@@ -42,7 +42,7 @@ export default function MyCoursesPage() {
   }, [user]);
 
   return (
-    <DashboardLayout title="My Courses" description="Continue where you left off.">
+    <DashboardLayout title="My Courses" description="Continue where you left off." allowedRoles={["student"]}>
       {loading ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {[1,2,3].map(i => <div key={i} className="skeleton h-52 rounded-2xl" />)}

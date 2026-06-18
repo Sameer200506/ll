@@ -81,7 +81,7 @@ export default function StudentsPage() {
   );
 
   return (
-    <DashboardLayout title="Students" description="View all students enrolled in your courses.">
+    <DashboardLayout title="Students" description="View all students enrolled in your courses." allowedRoles={["teacher", "admin"]}>
       {/* Search */}
       <div className="relative mb-6 max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--text-secondary)" }} />

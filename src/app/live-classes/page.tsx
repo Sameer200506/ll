@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   getAllSchedules, createSchedule, updateSchedule, deleteSchedule,
-  getAllCourses, getCoursesByTeacher
+  getAllCourses, getCoursesByTeacher, getApprovedEnrollmentsByUser
 } from "@/lib/firestore";
 import {
   Radio, Calendar, Clock, Plus, ExternalLink, Pencil, Trash2,
@@ -54,19 +54,30 @@ export default function LiveClassesPage() {
   const [formLink, setFormLink] = useState("");
   const [formDesc, setFormDesc] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const liveClassDateRef = useRef<HTMLInputElement>(null);
 
   const isTeacherOrAdmin = user?.role === "teacher" || user?.role === "admin";
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [allClasses, allCourses] = await Promise.all([
+      const [allClasses, allCourses, approvedEnrollments] = await Promise.all([
         getAllSchedules(),
         isTeacherOrAdmin && user?.role === "teacher"
           ? getCoursesByTeacher(user.id)
-          : getAllCourses()
+          : getAllCourses(),
+        user?.role === "student"
+          ? getApprovedEnrollmentsByUser(user.id)
+          : Promise.resolve([])
       ]);
-      setClasses(allClasses as LiveClass[]);
+      
+      if (user?.role === "student") {
+        const enrolledCourseIds = new Set(approvedEnrollments.map((e: any) => e.courseId));
+        setClasses((allClasses as LiveClass[]).filter((c) => enrolledCourseIds.has(c.courseId)));
+      } else {
+        setClasses(allClasses as LiveClass[]);
+      }
+      
       setCourses(allCourses as any[]);
       if (allCourses.length > 0 && !formCourseId) {
         setFormCourseId((allCourses as any[])[0].id);
@@ -216,13 +227,27 @@ export default function LiveClassesPage() {
 
                     <div>
                       <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Date & Start Time</label>
-                      <input
-                        type="datetime-local"
-                        value={formDate}
-                        onChange={(e) => setFormDate(e.target.value)}
-                        required
-                        className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-semibold"
-                      />
+                      <div className="relative flex items-center">
+                        <input
+                          ref={liveClassDateRef}
+                          type="datetime-local"
+                          value={formDate}
+                          onChange={(e) => setFormDate(e.target.value)}
+                          required
+                          className="w-full px-3 py-2.5 pr-10 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-semibold"
+                        />
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            try { liveClassDateRef.current?.showPicker(); } catch (err) { console.error(err); }
+                          }}
+                          className="absolute right-3 text-slate-400 hover:text-orange-500 transition-colors cursor-pointer"
+                          title="Open calendar picker"
+                        >
+                          <Calendar className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
 
                     <div>

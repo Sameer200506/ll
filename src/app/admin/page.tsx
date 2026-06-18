@@ -1795,78 +1795,102 @@ export default function AdminPage() {
                                   onChange={(e) => setManualCertCourseId(e.target.value)}
                                   className="w-full rounded-xl border border-slate-200 p-3 text-sm font-medium focus:outline-none focus:border-orange-500 bg-white"
                                   required
+                                  disabled={!manualCertStudentId}
                                 >
-                                  <option value="">Choose Course...</option>
-                                  {courses.map((c) => (
-                                    <option key={c.id} value={c.id}>
-                                      {c.title}
-                                    </option>
-                                  ))}
+                                  {!manualCertStudentId ? (
+                                    <option value="">Select a student first...</option>
+                                  ) : (
+                                    (() => {
+                                      const enrolledCourses = courses.filter((c: any) =>
+                                        enrollments.some(
+                                          (e: any) =>
+                                            e.userId === manualCertStudentId &&
+                                            e.courseId === c.id &&
+                                            e.status === "approved"
+                                        )
+                                      );
+                                      if (enrolledCourses.length === 0) {
+                                        return <option value="">No approved enrollments found</option>;
+                                      }
+                                      return (
+                                        <>
+                                          <option value="">Choose Course...</option>
+                                          {enrolledCourses.map((c: any) => (
+                                            <option key={c.id} value={c.id}>
+                                              {c.title}
+                                            </option>
+                                          ))}
+                                        </>
+                                      );
+                                    })()
+                                  )}
                                 </select>
                               </div>
 
-                              <div className="space-y-1.5">
-                                <label className="text-xs font-bold text-slate-500 uppercase">Course Duration</label>
-                                <input
-                                  type="text"
-                                  value={manualCertDuration}
-                                  onChange={(e) => setManualCertDuration(e.target.value)}
-                                  className="w-full rounded-xl border border-slate-200 p-3 text-sm font-medium focus:outline-none focus:border-orange-500"
-                                  placeholder="e.g. 30 Hours, Self-Paced"
-                                />
-                              </div>
-
-                              <div className="space-y-1.5">
-                                <label className="text-xs font-bold text-slate-500 uppercase">Completion Date</label>
-                                <input
-                                  type="date"
-                                  value={manualCertCompletionDate}
-                                  onChange={(e) => setManualCertCompletionDate(e.target.value)}
-                                  className="w-full rounded-xl border border-slate-200 p-3 text-sm font-medium focus:outline-none focus:border-orange-500"
-                                  required
-                                />
-                              </div>
-
-                              <div className="space-y-1.5">
-                                <label className="text-xs font-bold text-slate-500 uppercase">Upload Certificate File</label>
-                                <div className="border-2 border-dashed border-slate-200 hover:border-orange-500/50 transition-colors rounded-xl p-4 text-center cursor-pointer relative bg-slate-50/50">
-                                  <input
-                                    type="file"
-                                    onChange={handleCertFileChange}
-                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                    accept="image/*,application/pdf"
-                                    disabled={uploadingCertFile || !manualCertStudentId}
-                                  />
-                                  <div className="text-xs font-bold text-slate-500">
-                                    {uploadingCertFile ? (
-                                      <span className="text-orange-500 animate-pulse">Uploading file...</span>
-                                    ) : !manualCertStudentId ? (
-                                      <span className="text-slate-400">⚠️ Select a student first to upload</span>
-                                    ) : (
-                                      <span>📂 Click or drag certificate image/pdf</span>
-                                    )}
+                              {manualCertStudentId && manualCertCourseId && (
+                                <>
+                                  <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Course Duration</label>
+                                    <input
+                                      type="text"
+                                      value={manualCertDuration}
+                                      onChange={(e) => setManualCertDuration(e.target.value)}
+                                      className="w-full rounded-xl border border-slate-200 p-3 text-sm font-medium focus:outline-none focus:border-orange-500"
+                                      placeholder="e.g. 30 Hours, Self-Paced"
+                                    />
                                   </div>
-                                </div>
-                              </div>
 
-                              <div className="space-y-1.5">
-                                <label className="text-xs font-bold text-slate-500 uppercase">Certificate Image/File URL</label>
-                                <input
-                                  type="text"
-                                  value={manualCertUrl}
-                                  onChange={(e) => setManualCertUrl(e.target.value)}
-                                  className="w-full rounded-xl border border-slate-200 p-3 text-sm font-medium focus:outline-none focus:border-orange-500"
-                                  placeholder="Uploaded URL or manual link..."
-                                />
-                              </div>
+                                  <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Completion Date</label>
+                                    <input
+                                      type="date"
+                                      value={manualCertCompletionDate}
+                                      onChange={(e) => setManualCertCompletionDate(e.target.value)}
+                                      className="w-full rounded-xl border border-slate-200 p-3 text-sm font-medium focus:outline-none focus:border-orange-500"
+                                      required
+                                    />
+                                  </div>
 
-                              <Button
-                                type="submit"
-                                disabled={issuingCert || uploadingCertFile}
-                                className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl mt-2 transition-colors shadow-md"
-                              >
-                                {issuingCert ? "Issuing..." : "Issue Certificate"}
-                              </Button>
+                                  <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Upload Certificate File</label>
+                                    <div className="border-2 border-dashed border-slate-200 hover:border-orange-500/50 transition-colors rounded-xl p-4 text-center cursor-pointer relative bg-slate-50/50">
+                                      <input
+                                        type="file"
+                                        onChange={handleCertFileChange}
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                        accept="image/*,application/pdf"
+                                        disabled={uploadingCertFile}
+                                      />
+                                      <div className="text-xs font-bold text-slate-500">
+                                        {uploadingCertFile ? (
+                                          <span className="text-orange-500 animate-pulse">Uploading file...</span>
+                                        ) : (
+                                          <span>📂 Click or drag certificate image/pdf</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Certificate Image/File URL</label>
+                                    <input
+                                      type="text"
+                                      value={manualCertUrl}
+                                      onChange={(e) => setManualCertUrl(e.target.value)}
+                                      className="w-full rounded-xl border border-slate-200 p-3 text-sm font-medium focus:outline-none focus:border-orange-500"
+                                      placeholder="Uploaded URL or manual link..."
+                                    />
+                                  </div>
+
+                                  <Button
+                                    type="submit"
+                                    disabled={issuingCert || uploadingCertFile}
+                                    className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl mt-2 transition-colors shadow-md"
+                                  >
+                                    {issuingCert ? "Issuing..." : "Issue Certificate"}
+                                  </Button>
+                                </>
+                              )}
                             </form>
                           </CardContent>
                         </Card>
@@ -2079,6 +2103,12 @@ export default function AdminPage() {
                                         <div className="flex justify-between">
                                           <span className="text-slate-400 uppercase tracking-wider text-[10px] font-bold">Schedules (Live):</span>
                                           <span className="text-slate-800 font-extrabold">{schedules.filter((s) => s.teacherId === selectedUser.id).length}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                          <span className="text-slate-400 uppercase tracking-wider text-[10px] font-bold">Earnings (Per Class):</span>
+                                          <span className="text-emerald-600 font-extrabold">
+                                            ₹{(schedules.filter((s) => s.teacherId === selectedUser.id && s.datetime && new Date(s.datetime) <= new Date()).length * 200).toLocaleString()}
+                                          </span>
                                         </div>
                                         <div className="flex justify-between">
                                           <span className="text-slate-400 uppercase tracking-wider text-[10px] font-bold">Quizzes Created:</span>
