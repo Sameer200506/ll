@@ -39,11 +39,15 @@ export default function TeacherOverview() {
   const { user } = useAuth();
   const [courses, setCourses] = useState<any[]>([]);
   const [whatsappNumber, setWhatsappNumber] = useState("+919347008039");
+  const [amountPerLiveClass, setAmountPerLiveClass] = useState(200);
 
   useEffect(() => {
     getSiteSettings().then((settings) => {
       if (settings?.whatsappNumber) {
         setWhatsappNumber(settings.whatsappNumber);
+      }
+      if (settings?.amountPerLiveClass !== undefined) {
+        setAmountPerLiveClass(Number(settings.amountPerLiveClass) || 200);
       }
     });
   }, []);
@@ -82,11 +86,14 @@ export default function TeacherOverview() {
   const fetchData = async () => {
     if (!user) return;
     setLoading(true);
-    const [myCourses, scheds, allUsers] = await Promise.all([
+    const [myCourses, scheds, allUsers, settings] = await Promise.all([
       getCoursesByTeacher(user.id),
       getSchedulesByTeacher(user.id),
-      getAllUsers()
+      getAllUsers(),
+      getSiteSettings()
     ]);
+    const rate = settings?.amountPerLiveClass !== undefined ? (Number(settings.amountPerLiveClass) || 200) : 200;
+    setAmountPerLiveClass(rate);
     setCourses(myCourses);
     setSchedules(scheds);
 
@@ -106,7 +113,7 @@ export default function TeacherOverview() {
 
     // Filter schedules to find classes that have already been conducted/taken (datetime in past or present)
     const classesTakenTotal = scheds.filter((s: any) => s.datetime && new Date(s.datetime) <= new Date()).length;
-    const earnings = classesTakenTotal * 200;
+    const earnings = classesTakenTotal * rate;
 
     await Promise.all(myCourses.map(async (c: any) => {
       const enr = await getEnrollmentsByCourse(c.id);
@@ -115,7 +122,7 @@ export default function TeacherOverview() {
       activeEnrollments.forEach((e: any) => studentSet.add(e.userId));
 
       const courseClassesTaken = scheds.filter((s: any) => s.courseId === c.id && s.datetime && new Date(s.datetime) <= new Date()).length;
-      const courseRevenue = courseClassesTaken * 200;
+      const courseRevenue = courseClassesTaken * rate;
 
       perCourse.push({
         id: c.id,
@@ -478,7 +485,7 @@ export default function TeacherOverview() {
                               <div className="min-w-0">
                                 <p className="text-sm font-bold text-slate-800 truncate">{ce.title}</p>
                                 <p className="text-xs text-slate-400 font-semibold mt-0.5">
-                                  {ce.classesTaken} class{ce.classesTaken !== 1 ? "es" : ""} conducted · ₹200 / class
+                                  {ce.classesTaken} class{ce.classesTaken !== 1 ? "es" : ""} conducted · ₹{amountPerLiveClass} / class
                                 </p>
                               </div>
                             </div>

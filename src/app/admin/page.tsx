@@ -152,6 +152,7 @@ export default function AdminPage() {
   // Certificate template configs
   const [certPrefix, setCertPrefix] = useState("JRCC-");
   const [certSignature, setCertSignature] = useState("Platform Director");
+  const [amountPerLiveClass, setAmountPerLiveClass] = useState(200);
 
   const [settingsSaving, setSettingsSaving] = useState(false);
 
@@ -259,6 +260,7 @@ export default function AdminPage() {
 
         setCertPrefix(settings.certPrefix || "JRCC-");
         setCertSignature(settings.certSignature || "Platform Director");
+        setAmountPerLiveClass(settings.amountPerLiveClass !== undefined ? settings.amountPerLiveClass : 200);
       }
     } catch {
       toast.error("Failed to load data");
@@ -1645,6 +1647,17 @@ export default function AdminPage() {
                                />
                              </div>
 
+                             <div>
+                               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Amount per Live Class (₹)</label>
+                               <input
+                                 type="number"
+                                 placeholder="200"
+                                 value={amountPerLiveClass}
+                                 onChange={(e) => setAmountPerLiveClass(Number(e.target.value))}
+                                 className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm font-semibold"
+                               />
+                             </div>
+
                              <div className="border-t border-slate-100 pt-4 mt-2">
                                <h4 className="text-sm font-bold text-slate-900 mb-3">Landing Page Curriculum Syllabus CMS</h4>
                                <div className="space-y-4">
@@ -1734,6 +1747,7 @@ export default function AdminPage() {
                                      heroTitle,
                                      heroTagline,
                                      classRange,
+                                     amountPerLiveClass: Number(amountPerLiveClass) || 200,
                                      footerText,
                                      curriculum: {
                                        title: curriculumTitle,
@@ -2107,7 +2121,7 @@ export default function AdminPage() {
                                         <div className="flex justify-between">
                                           <span className="text-slate-400 uppercase tracking-wider text-[10px] font-bold">Earnings (Per Class):</span>
                                           <span className="text-emerald-600 font-extrabold">
-                                            ₹{(schedules.filter((s) => s.teacherId === selectedUser.id && s.datetime && new Date(s.datetime) <= new Date()).length * 200).toLocaleString()}
+                                            ₹{(schedules.filter((s) => s.teacherId === selectedUser.id && s.datetime && new Date(s.datetime) <= new Date()).length * amountPerLiveClass).toLocaleString()}
                                           </span>
                                         </div>
                                         <div className="flex justify-between">
