@@ -9,11 +9,12 @@ import { Button } from "@/components/ui/button";
 import { 
   getCoursesByTeacher, getEnrollmentsByCourse, getSchedulesByTeacher, 
   getAllUsers, createSchedule, createAssignment, recordAttendance, 
-  createNotification, getSiteSettings 
+  createNotification, getSiteSettings, endSchedule, getEnrollmentsByCourse as getEnrByCourse
 } from "@/lib/firestore";
 import { 
   BookOpen, Users, Calendar, IndianRupee, ArrowRight, Clock, Plus, 
-  FileText, Megaphone, CheckCircle2, ChevronDown, Check, X, Sparkles, Monitor
+  FileText, Megaphone, CheckCircle2, ChevronDown, Check, X, Sparkles, Monitor,
+  StopCircle, MessageCircle
 } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
@@ -111,8 +112,8 @@ export default function TeacherOverview() {
     let studentSet = new Set<string>();
     const perCourse: any[] = [];
 
-    // Filter schedules to find classes that have already been conducted/taken (datetime in past or present)
-    const classesTakenTotal = scheds.filter((s: any) => s.datetime && new Date(s.datetime) <= new Date()).length;
+    // Earnings only count classes explicitly ended by teacher
+    const classesTakenTotal = scheds.filter((s: any) => s.ended === true).length;
     const earnings = classesTakenTotal * rate;
 
     await Promise.all(myCourses.map(async (c: any) => {
@@ -121,7 +122,7 @@ export default function TeacherOverview() {
       const activeEnrollments = enr.filter((e: any) => studentsMap.some((s: any) => s.id === e.userId));
       activeEnrollments.forEach((e: any) => studentSet.add(e.userId));
 
-      const courseClassesTaken = scheds.filter((s: any) => s.courseId === c.id && s.datetime && new Date(s.datetime) <= new Date()).length;
+      const courseClassesTaken = scheds.filter((s: any) => s.courseId === c.id && s.ended === true).length;
       const courseRevenue = courseClassesTaken * rate;
 
       perCourse.push({
@@ -164,8 +165,9 @@ export default function TeacherOverview() {
     }
   }, [attCourseId, courseEarnings, allStudentsList]);
 
+  // Upcoming = not yet ended (includes "live now" sessions)
   const upcoming = schedules
-    .filter((s: any) => s.datetime && new Date(s.datetime) > new Date())
+    .filter((s: any) => !s.ended)
     .sort((a: any, b: any) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime())
     .slice(0, 3);
 
@@ -194,9 +196,38 @@ export default function TeacherOverview() {
         meetLink: schedLink
       });
       toast.success("Live class scheduled successfully!");
+
+      // Notify enrolled students via WhatsApp
+      if (course) {
+        try {
+          const [enrollments, allUsrs] = await Promise.all([
+            getEnrByCourse(schedCourseId),
+            getAllUsers()
+          ]);
+          const usersMap: Record<string, any> = {};
+          (allUsrs as any[]).forEach((u: any) => { usersMap[u.id] = u; });
+          const formattedDate = schedDate ? format(new Date(schedDate), "EEEE, MMM d 'at' h:mm a") : "";
+          const approved = (enrollments as any[]).filter((e: any) => e.status === "approved");
+          let notified = 0;
+          for (const enr of approved) {
+            const student = usersMap[(enr as any).userId];
+            if (student?.phone) {
+              const ph = student.phone.replace(/\D/g, "");
+              const msg = encodeURIComponent(
+                `Dear ${student.name},\n\nThis is ${user?.name || "Your Instructor"}, your Instructor at Jrcodecrafterz.\nYour class on "${course.title}" is scheduled for ${formattedDate}.\n\nPlease join on time via your dashboard at www.jrcodecrafterz.com.\n\nRegards,\n${user?.name || "Your Instructor"}\nJrcodecrafterz.`
+              );
+              window.open(`https://wa.me/${ph}?text=${msg}`, "_blank");
+              notified++;
+            }
+          }
+          if (notified > 0) toast.success(`WhatsApp opened for ${notified} student(s)`);
+          else toast.info("No enrolled students with phone numbers — share the link manually.");
+        } catch { /* non-fatal */ }
+      }
+
       setSchedDate("");
       setSchedLink("");
-      fetchData(); // Refresh list
+      fetchData();
       setActiveTab("overview");
     } catch {
       toast.error("Failed to schedule class");
@@ -434,28 +465,89 @@ export default function TeacherOverview() {
                       </Card>
                     ) : (
                       <div className="space-y-3">
-                        {upcoming.map((s: any) => (
-                          <Card key={s.id} className="border-slate-100 card-hover relative overflow-hidden">
-                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-orange-400 to-amber-500" />
-                            <CardContent className="p-4 text-left flex justify-between items-center gap-4">
-                              <div className="flex items-start gap-3 min-w-0">
-                                <div className="w-10 h-10 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center flex-shrink-0 text-orange-500">
-                                  <Monitor className="w-5 h-5" />
-                                </div>
-                                <div className="min-w-0">
-                                  <p className="font-bold text-slate-800 text-sm truncate">{s.courseName}</p>
-                                  <div className="flex items-center gap-1.5 mt-1 text-slate-400">
-                                    <Clock className="w-3.5 h-3.5 text-slate-400" />
-                                    <span className="text-xs font-semibold">
-                                      {s.datetime ? format(new Date(s.datetime), "MMM d, h:mm a") : "TBD"}
-                                    </span>
+                        {upcoming.map((s: any) => {
+                          const isLive = s.datetime && new Date(s.datetime) <= new Date();
+                          return (
+                            <Card key={s.id} className="border-slate-100 card-hover relative overflow-hidden">
+                              <div className={`absolute top-0 left-0 w-full h-1 ${isLive ? "bg-gradient-to-r from-red-500 to-orange-500" : "bg-gradient-to-r from-orange-400 to-amber-500"}`} />
+                              <CardContent className="p-4 text-left">
+                                <div className="flex justify-between items-start gap-3 mb-2">
+                                  <div className="flex items-start gap-3 min-w-0">
+                                    <div className={`w-10 h-10 rounded-xl border flex items-center justify-center flex-shrink-0 ${isLive ? "bg-red-50 border-red-100 text-red-500" : "bg-orange-50 border-orange-100 text-orange-500"}`}>
+                                      <Monitor className="w-5 h-5" />
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className="font-bold text-slate-800 text-sm truncate">{s.courseName}</p>
+                                      <div className="flex items-center gap-1.5 mt-1 text-slate-400">
+                                        <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                        <span className="text-xs font-semibold">
+                                          {s.datetime ? format(new Date(s.datetime), "MMM d, h:mm a") : "TBD"}
+                                        </span>
+                                      </div>
+                                    </div>
                                   </div>
+                                  {isLive ? (
+                                    <Badge className="bg-red-100 text-red-600 border-red-200 text-[9px] font-bold animate-pulse flex-shrink-0">🔴 Live</Badge>
+                                  ) : (
+                                    <Badge className="bg-orange-500 hover:bg-orange-600 text-white border-transparent text-[9px] font-bold flex-shrink-0">Upcoming</Badge>
+                                  )}
                                 </div>
-                              </div>
-                              <Badge className="bg-orange-500 hover:bg-orange-600 text-white border-transparent text-[9px] font-bold">Active Meet</Badge>
-                            </CardContent>
-                          </Card>
-                        ))}
+                                {isLive && (
+                                  <div className="flex gap-2 mt-3">
+                                    <a
+                                      href={s.meetLink}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-all"
+                                    >
+                                      Join Meet
+                                    </a>
+                                    <button
+                                      onClick={async () => {
+                                        if (!confirm(`End "${s.courseName}"? This marks it as completed and adds earnings.`)) return;
+                                        try {
+                                          await endSchedule(s.id);
+                                          toast.success("Class ended — earnings updated!");
+                                          fetchData();
+                                        } catch { toast.error("Failed to end class"); }
+                                      }}
+                                      className="w-9 h-9 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center text-red-500 hover:bg-red-100 transition-colors"
+                                      title="End class"
+                                    >
+                                      <StopCircle className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      onClick={async () => {
+                                        try {
+                                          const [enrs, allUsrs] = await Promise.all([getEnrByCourse(s.courseId), getAllUsers()]);
+                                          const um: Record<string, any> = {};
+                                          (allUsrs as any[]).forEach((u: any) => { um[u.id] = u; });
+                                          const fd = format(new Date(s.datetime), "EEEE, MMM d 'at' h:mm a");
+                                          let n = 0;
+                                          for (const e of (enrs as any[]).filter((e: any) => e.status === "approved")) {
+                                            const st = um[(e as any).userId];
+                                            if (st?.phone) {
+                                              const ph = st.phone.replace(/\D/g, "");
+                                              const msg = encodeURIComponent(`Dear ${st.name},\n\nThis is ${user?.name || "Your Instructor"}, your Instructor at Jrcodecrafterz.\nYour class on "${s.courseName}" has already started. Please join ASAP!\n\nJoin at: www.jrcodecrafterz.com\n\nRegards,\n${user?.name}\nJrcodecrafterz.`);
+                                              window.open(`https://wa.me/${ph}?text=${msg}`, "_blank");
+                                              n++;
+                                            }
+                                          }
+                                          if (n > 0) toast.success(`WhatsApp opened for ${n} student(s)`);
+                                          else toast.info("No enrolled students with phone numbers.");
+                                        } catch { toast.error("Could not load contacts"); }
+                                      }}
+                                      className="w-9 h-9 rounded-xl bg-green-50 border border-green-200 flex items-center justify-center text-green-600 hover:bg-green-100 transition-colors"
+                                      title="Notify via WhatsApp"
+                                    >
+                                      <MessageCircle className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                )}
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
                       </div>
                     )}
                   </div>

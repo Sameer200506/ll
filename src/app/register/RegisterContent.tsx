@@ -14,6 +14,7 @@ export default function RegisterContent() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -21,10 +22,11 @@ export default function RegisterContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password.length < 6) { toast.error("Password must be at least 6 characters"); return; }
+    if (!phone.trim()) { toast.error("Please enter your WhatsApp/mobile number"); return; }
     setLoading(true);
     try {
       // Students only — teachers are created manually by admin
-      await register(email, password, name, "student");
+      await register(email, password, name, "student", phone.trim());
       toast.success("Account created! Please select a course to get started.");
       setTimeout(() => {
         // Redirect to browse so student can pick and pay for a course immediately
@@ -94,6 +96,10 @@ export default function RegisterContent() {
             <div className="space-y-1.5">
               <Label htmlFor="email">Email address</Label>
               <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="phone">WhatsApp / Mobile Number</Label>
+              <Input id="phone" type="tel" placeholder="e.g. 9876543210" value={phone} onChange={(e) => setPhone(e.target.value)} required />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="password">Password</Label>

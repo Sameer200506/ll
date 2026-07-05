@@ -15,6 +15,7 @@ export interface AppUser {
   name: string;
   email: string;
   role: "student" | "teacher" | "admin";
+  phone?: string;
 }
 
 interface AuthContextType {
@@ -25,7 +26,8 @@ interface AuthContextType {
     email: string,
     password: string,
     name: string,
-    role: "student" | "teacher"
+    role: "student" | "teacher",
+    phone?: string
   ) => Promise<AppUser>;
   logout: () => Promise<void>;
 }
@@ -47,6 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             name: docData.name,
             email: docData.email,
             role: docData.role as "student" | "teacher" | "admin",
+            phone: docData.phone,
           });
         }
       } else {
@@ -75,11 +78,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     email: string,
     password: string,
     name: string,
-    role: "student" | "teacher"
+    role: "student" | "teacher",
+    phone?: string
   ): Promise<AppUser> => {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
-    await createUserDoc(cred.user.uid, { name, email, role });
-    const appUser: AppUser = { id: cred.user.uid, name, email, role };
+    await createUserDoc(cred.user.uid, { name, email, role, phone });
+    const appUser: AppUser = { id: cred.user.uid, name, email, role, phone };
     setUser(appUser);
     return appUser;
   };

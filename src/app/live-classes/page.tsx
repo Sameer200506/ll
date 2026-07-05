@@ -7,12 +7,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  getAllSchedules, createSchedule, updateSchedule, deleteSchedule,
-  getAllCourses, getCoursesByTeacher, getApprovedEnrollmentsByUser
+  getAllSchedules, createSchedule, updateSchedule, deleteSchedule, endSchedule,
+  getAllCourses, getCoursesByTeacher, getApprovedEnrollmentsByUser,
+  getEnrollmentsByCourse, getAllUsers, getSiteSettings
 } from "@/lib/firestore";
 import {
   Radio, Calendar, Clock, Plus, ExternalLink, Pencil, Trash2,
-  Video, Users, ArrowRight, X, Check, Monitor
+  Video, X, Check, Monitor, StopCircle, MessageCircle
 } from "lucide-react";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
@@ -38,6 +39,7 @@ interface LiveClass {
   meetLink: string;
   description?: string;
   createdAt?: string;
+  ended?: boolean;
 }
 
 export default function LiveClassesPage() {
@@ -47,6 +49,7 @@ export default function LiveClassesPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingClass, setEditingClass] = useState<LiveClass | null>(null);
+  const [whatsappNumber, setWhatsappNumber] = useState("+919347008039");
 
   // Form state
   const [formCourseId, setFormCourseId] = useState("");
@@ -61,23 +64,26 @@ export default function LiveClassesPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [allClasses, allCourses, approvedEnrollments] = await Promise.all([
+      const [allClasses, allCourses, approvedEnrollments, settings] = await Promise.all([
         getAllSchedules(),
         isTeacherOrAdmin && user?.role === "teacher"
           ? getCoursesByTeacher(user.id)
           : getAllCourses(),
         user?.role === "student"
           ? getApprovedEnrollmentsByUser(user.id)
-          : Promise.resolve([])
+          : Promise.resolve([]),
+        getSiteSettings()
       ]);
-      
+
+      if (settings?.whatsappNumber) setWhatsappNumber(settings.whatsappNumber);
+
       if (user?.role === "student") {
         const enrolledCourseIds = new Set(approvedEnrollments.map((e: any) => e.courseId));
         setClasses((allClasses as LiveClass[]).filter((c) => enrolledCourseIds.has(c.courseId)));
       } else {
         setClasses(allClasses as LiveClass[]);
       }
-      
+
       setCourses(allCourses as any[]);
       if (allCourses.length > 0 && !formCourseId) {
         setFormCourseId((allCourses as any[])[0].id);
@@ -111,6 +117,45 @@ export default function LiveClassesPage() {
     setShowForm(true);
   };
 
+  // Build a WhatsApp link to notify enrolled students when a class is scheduled
+  const buildWhatsAppLinks = async (courseId: string, courseName: string, datetime: string) => {
+    try {
+      const [enrollments, allUsers] = await Promise.all([
+        getEnrollmentsByCourse(courseId),
+        getAllUsers()
+      ]);
+      const usersMap: Record<string, any> = {};
+      (allUsers as any[]).forEach((u: any) => { usersMap[u.id] = u; });
+
+      const approvedEnr = (enrollments as any[]).filter((e: any) => e.status === "approved");
+      const formattedDate = datetime ? format(new Date(datetime), "EEEE, MMM d 'at' h:mm a") : "";
+
+      // Open WhatsApp for each enrolled student who has a phone number
+      let opened = 0;
+      for (const enr of approvedEnr) {
+        const student = usersMap[(enr as any).userId];
+        if (student?.phone) {
+          const phone = student.phone.replace(/\D/g, "");
+          const teacherName = user?.name || "Your Instructor";
+          const msg = encodeURIComponent(
+            `Dear ${student.name},\n\nThis is ${teacherName}, your Instructor at Jrcodecrafterz.\nYour class on "${courseName}" is scheduled for ${formattedDate}.\n\nPlease be ready to join on time. You can join via your dashboard at www.jrcodecrafterz.com.\n\nRegards,\n${teacherName}\nJrcodecrafterz.`
+          );
+          // ponytail: opens one tab per student; for large classes, bulk SMS preferred
+          window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
+          opened++;
+        }
+      }
+
+      if (opened === 0) {
+        toast.info("No enrolled students with phone numbers found. Share manually.");
+      } else {
+        toast.success(`WhatsApp opened for ${opened} student(s)`);
+      }
+    } catch {
+      toast.error("Could not load student contacts");
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formDate || !formLink) {
@@ -136,6 +181,10 @@ export default function LiveClassesPage() {
       } else {
         await createSchedule(payload);
         toast.success("Live class scheduled!");
+        // Prompt teacher to send WhatsApp notifications
+        if (course) {
+          await buildWhatsAppLinks(formCourseId, course.title, formDate);
+        }
       }
       resetForm();
       fetchData();
@@ -143,6 +192,17 @@ export default function LiveClassesPage() {
       toast.error("Failed to save live class");
     }
     setSubmitting(false);
+  };
+
+  const handleEndClass = async (cls: LiveClass) => {
+    if (!confirm(`End "${cls.courseName}"? This will mark it as completed and add earnings.`)) return;
+    try {
+      await endSchedule(cls.id);
+      toast.success("Class ended — earnings updated!");
+      fetchData();
+    } catch {
+      toast.error("Failed to end class");
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -156,13 +216,18 @@ export default function LiveClassesPage() {
     }
   };
 
+  // A class is "live/upcoming" until teacher explicitly ends it (regardless of time)
+  // A class is "past" only when ended === true
   const now = new Date();
   const upcoming = classes
-    .filter((c) => c.datetime && new Date(c.datetime) > now)
+    .filter((c) => !c.ended)
     .sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime());
   const past = classes
-    .filter((c) => c.datetime && new Date(c.datetime) <= now)
+    .filter((c) => c.ended === true)
     .sort((a, b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime());
+
+  // For display: a class whose datetime has passed but not yet ended shows as "Live Now"
+  const isLiveNow = (cls: LiveClass) => cls.datetime && new Date(cls.datetime) <= now && !cls.ended;
 
   return (
     <DashboardLayout
@@ -279,7 +344,7 @@ export default function LiveClassesPage() {
                         disabled={submitting}
                         className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl shadow-lg shadow-orange-500/20"
                       >
-                        {submitting ? "Saving..." : editingClass ? <><Check className="w-4 h-4" /> Update Class</> : <><Plus className="w-4 h-4" /> Publish Class</>}
+                        {submitting ? "Saving..." : editingClass ? <><Check className="w-4 h-4" /> Update Class</> : <><Plus className="w-4 h-4" /> Publish & Notify via WhatsApp</>}
                       </Button>
                       <Button type="button" variant="outline" onClick={resetForm} className="px-6 rounded-xl border-slate-200">
                         Cancel
@@ -308,10 +373,10 @@ export default function LiveClassesPage() {
           ))}
         </motion.div>
 
-        {/* Upcoming classes */}
+        {/* Upcoming / Live classes */}
         <motion.div variants={fadeInUp}>
           <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
-            <Radio className="w-5 h-5 text-orange-500 animate-pulse" /> Upcoming Live Sessions
+            <Radio className="w-5 h-5 text-orange-500 animate-pulse" /> Upcoming & Active Sessions
           </h2>
           {loading ? (
             <div className="space-y-4">
@@ -337,15 +402,21 @@ export default function LiveClassesPage() {
               {upcoming.map((cls) => (
                 <motion.div key={cls.id} whileHover={{ y: -4 }} className="group">
                   <Card className="border-slate-100 overflow-hidden relative card-hover h-full">
-                    <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-orange-400 to-amber-500" />
+                    <div className={`absolute top-0 left-0 w-full h-1.5 ${isLiveNow(cls) ? "bg-gradient-to-r from-red-500 to-orange-500" : "bg-gradient-to-r from-orange-400 to-amber-500"}`} />
                     <CardContent className="p-5 text-left flex flex-col h-full">
                       <div className="flex items-start justify-between gap-2 mb-3">
-                        <div className="w-10 h-10 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center text-orange-500 flex-shrink-0">
+                        <div className={`w-10 h-10 rounded-xl border flex items-center justify-center flex-shrink-0 ${isLiveNow(cls) ? "bg-red-50 border-red-100 text-red-500" : "bg-orange-50 border-orange-100 text-orange-500"}`}>
                           <Video className="w-5 h-5" />
                         </div>
-                        <Badge className="bg-green-100 text-green-600 border border-green-200/50 hover:bg-green-100 text-[9px] font-bold uppercase">
-                          Upcoming
-                        </Badge>
+                        {isLiveNow(cls) ? (
+                          <Badge className="bg-red-100 text-red-600 border border-red-200/50 hover:bg-red-100 text-[9px] font-bold uppercase animate-pulse">
+                            🔴 Live Now
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-green-100 text-green-600 border border-green-200/50 hover:bg-green-100 text-[9px] font-bold uppercase">
+                            Upcoming
+                          </Badge>
+                        )}
                       </div>
 
                       <p className="font-bold text-slate-900 text-sm mb-1 line-clamp-2">{cls.courseName}</p>
@@ -372,6 +443,23 @@ export default function LiveClassesPage() {
                         </a>
                         {isTeacherOrAdmin && (
                           <>
+                            {/* WhatsApp notify button */}
+                            <button
+                              onClick={() => buildWhatsAppLinks(cls.courseId, cls.courseName, cls.datetime)}
+                              className="w-9 h-9 rounded-xl bg-green-50 border border-green-200 flex items-center justify-center text-green-600 hover:bg-green-100 transition-colors"
+                              title="Notify students via WhatsApp"
+                            >
+                              <MessageCircle className="w-3.5 h-3.5" />
+                            </button>
+                            {isLiveNow(cls) && (
+                              <button
+                                onClick={() => handleEndClass(cls)}
+                                className="w-9 h-9 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center text-red-500 hover:bg-red-100 transition-colors"
+                                title="End class"
+                              >
+                                <StopCircle className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                             <button
                               onClick={() => handleOpenEdit(cls)}
                               className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500 hover:text-orange-500 hover:border-orange-300 transition-colors"

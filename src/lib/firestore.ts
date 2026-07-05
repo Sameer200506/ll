@@ -18,12 +18,13 @@ import { db, storage } from "./firebase";
 
 export async function createUserDoc(
   uid: string,
-  data: { name: string; email: string; role: string }
+  data: { name: string; email: string; role: string; phone?: string }
 ) {
   await setDoc(doc(db, "users", uid), {
     name: data.name,
     email: data.email,
     role: data.role,
+    ...(data.phone ? { phone: data.phone } : {}),
   });
 }
 
@@ -212,9 +213,14 @@ export async function getProgress(userId: string, courseId: string) {
 export async function createSchedule(data: any) {
   const ref = await addDoc(collection(db, "schedules"), {
     ...data,
+    ended: false, // teacher must explicitly end class
     createdAt: new Date().toISOString(),
   });
   return { id: ref.id };
+}
+
+export async function endSchedule(scheduleId: string) {
+  await updateDoc(doc(db, "schedules", scheduleId), { ended: true });
 }
 
 export async function updateSchedule(scheduleId: string, data: any) {

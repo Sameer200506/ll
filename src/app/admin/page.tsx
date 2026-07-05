@@ -1120,7 +1120,7 @@ export default function AdminPage() {
                               />
                             </div>
                             <div className="space-y-1">
-                              <label className="block text-xs font-bold text-slate-500 uppercase">Assigned Instructor *</label>
+                              <label className="block text-xs font-bold text-slate-500 uppercase">Assigned Instructor (optional)</label>
                               <select
                                 value={courseForm.teacherId}
                                 onChange={(e) => setCourseForm({ ...courseForm, teacherId: e.target.value })}
@@ -2121,7 +2121,7 @@ export default function AdminPage() {
                                         <div className="flex justify-between">
                                           <span className="text-slate-400 uppercase tracking-wider text-[10px] font-bold">Earnings (Per Class):</span>
                                           <span className="text-emerald-600 font-extrabold">
-                                            ₹{(schedules.filter((s) => s.teacherId === selectedUser.id && s.datetime && new Date(s.datetime) <= new Date()).length * amountPerLiveClass).toLocaleString()}
+                                            ₹{(schedules.filter((s) => s.teacherId === selectedUser.id && s.ended === true).length * amountPerLiveClass).toLocaleString()}
                                           </span>
                                         </div>
                                         <div className="flex justify-between">
