@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { 
   getEnrollmentsByUser, getAllCourses, getAllSchedules, 
   getQuizResultsByUser, getProgress, getNotificationsByUser,
-  markNotificationRead
+  markNotificationRead, isScheduleForStudent
 } from "@/lib/firestore";
 import { 
   BookOpen, Calendar, Trophy, TrendingUp, Video, Clock, ArrowRight, 
@@ -75,7 +75,13 @@ export default function StudentOverview() {
   const myCourseIds = enrollments.filter((e: any) => e.status !== "pending").map((e: any) => e.courseId);
   const myCourses = courses.filter((c: any) => myCourseIds.includes(c.id));
   const upcomingClasses = schedules
-    .filter((s: any) => new Date(s.datetime) > new Date())
+    .filter(
+      (s: any) =>
+        myCourseIds.includes(s.courseId) &&
+        isScheduleForStudent(s, user?.id || "") &&
+        !s.ended &&
+        new Date(s.datetime) > new Date()
+    )
     .sort((a: any, b: any) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime())
     .slice(0, 3);
 

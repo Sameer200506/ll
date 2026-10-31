@@ -5,7 +5,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { getEnrollmentsByUser, getAllCourses, getQuizzesByCourse, getQuizResultsByUser } from "@/lib/firestore";
+import { getApprovedEnrollmentsByUser, getAllCourses, getQuizzesByCourse, getQuizResultsByUser } from "@/lib/firestore";
 import { ClipboardList, Trophy, CheckCircle2, ArrowRight, Lock } from "lucide-react";
 import Link from "next/link";
 
@@ -19,7 +19,7 @@ export default function TestsPage() {
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const enr = await getEnrollmentsByUser(user.id);
+      const enr = await getApprovedEnrollmentsByUser(user.id);
       const allCourses = await getAllCourses();
       const cMap: Record<string, any> = {};
       allCourses.forEach((c: any) => { cMap[c.id] = c; });

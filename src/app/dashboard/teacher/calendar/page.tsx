@@ -5,13 +5,14 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { getSchedulesByTeacher } from "@/lib/firestore";
-import { Calendar, Video, Clock, ExternalLink } from "lucide-react";
+import { getSchedulesByTeacher, getAllUsers } from "@/lib/firestore";
+import { Calendar, Video, Clock, ExternalLink, Users, FileText } from "lucide-react";
 import { format, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isToday, isPast } from "date-fns";
 
 export default function TeacherCalendarPage() {
   const { user } = useAuth();
   const [schedules, setSchedules] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -19,11 +20,27 @@ export default function TeacherCalendarPage() {
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const scheds = await getSchedulesByTeacher(user.id);
+      const [scheds, allUsers] = await Promise.all([
+        getSchedulesByTeacher(user.id),
+        getAllUsers(),
+      ]);
       setSchedules(scheds);
+      setUsers(allUsers as any[]);
       setLoading(false);
     })();
   }, [user]);
+
+  const studentNamesFor = (schedule: any) => {
+    if (Array.isArray(schedule.studentNames) && schedule.studentNames.length > 0) {
+      return schedule.studentNames.join(", ");
+    }
+    if (Array.isArray(schedule.studentIds) && schedule.studentIds.length > 0) {
+      return schedule.studentIds
+        .map((id: string) => users.find((u) => u.id === id)?.name || id)
+        .join(", ");
+    }
+    return "All enrolled students";
+  };
 
   const days = eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) });
   const startDay = getDay(days[0]);
@@ -101,7 +118,7 @@ export default function TeacherCalendarPage() {
             ) : (
               <div className="space-y-3">
                 {selectedEvents.map((s: any) => (
-                  <EventCard key={s.id} schedule={s} />
+                  <EventCard key={s.id} schedule={s} targetNames={studentNamesFor(s)} />
                 ))}
               </div>
             )}
@@ -120,7 +137,7 @@ export default function TeacherCalendarPage() {
                   <p className="text-sm" style={{ color: "var(--text-secondary)" }}>No upcoming classes</p>
                 </CardContent>
               </Card>
-            ) : upcomingAll.map((s: any) => <EventCard key={s.id} schedule={s} compact />)}
+            ) : upcomingAll.map((s: any) => <EventCard key={s.id} schedule={s} targetNames={studentNamesFor(s)} compact />)}
           </div>
         </div>
       </div>
@@ -128,8 +145,10 @@ export default function TeacherCalendarPage() {
   );
 }
 
-function EventCard({ schedule, compact = false }: { schedule: any; compact?: boolean }) {
-  const past = schedule.datetime && isPast(new Date(schedule.datetime));
+function EventCard({ schedule, targetNames, compact = false }: { schedule: any; targetNames: string; compact?: boolean }) {
+  const ended = schedule.ended === true;
+  const past = ended || (schedule.datetime && isPast(new Date(schedule.datetime)));
+  const materials = Array.isArray(schedule.materials) ? schedule.materials : [];
   return (
     <Card className="card-hover">
       <CardContent className="pt-4 pb-4">
@@ -140,15 +159,33 @@ function EventCard({ schedule, compact = false }: { schedule: any; compact?: boo
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-sm">{schedule.courseName}</p>
+            <p className="text-xs mt-0.5 flex items-center gap-1 truncate" style={{ color: "var(--text-secondary)" }}>
+              <Users className="w-3 h-3 flex-shrink-0" /> For: {targetNames}
+            </p>
             <div className="flex items-center gap-1 mt-1.5">
               <Clock className="w-3 h-3" style={{ color: "var(--text-secondary)" }} />
               <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
                 {schedule.datetime ? format(new Date(schedule.datetime), "MMM d, yyyy · h:mm a") : "TBD"}
               </span>
             </div>
+            {materials.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {materials.map((material: any, idx: number) => (
+                  <a
+                    key={`${material.url}-${idx}`}
+                    href={material.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-md border border-orange-200 text-orange-600 hover:bg-orange-50"
+                  >
+                    <FileText className="w-3 h-3" /> {material.name}
+                  </a>
+                ))}
+              </div>
+            )}
             {!compact && (
               <a href={schedule.meetLink} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block">
-                <Button size="sm" className="h-7 px-3 text-xs gap-1" disabled={past}>
+                <Button size="sm" className="h-7 px-3 text-xs gap-1" disabled={!!past}>
                   {past ? "Ended" : <><ExternalLink className="w-3 h-3" /> Join Class</>}
                 </Button>
               </a>
@@ -161,7 +198,9 @@ function EventCard({ schedule, compact = false }: { schedule: any; compact?: boo
               </a>
             )}
           </div>
-          <Badge variant={past ? "secondary" : "success"}>{past ? "Ended" : "Upcoming"}</Badge>
+          <Badge variant={ended ? "secondary" : past ? "danger" : "success"}>
+            {ended ? "Finished" : past ? "Live now" : "Upcoming"}
+          </Badge>
         </div>
       </CardContent>
     </Card>

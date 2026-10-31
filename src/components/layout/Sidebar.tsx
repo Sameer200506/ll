@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import {
   BookOpen, Calendar, LayoutDashboard,
   Users, ClipboardList, Video, ShoppingBag,
-  LogOut, FolderOpen, Radio, MessageCircle, Shield, Award, Download
+  LogOut, FolderOpen, Radio, MessageCircle, Shield, Award, Download, FileText
 } from "lucide-react";
 import { getSiteSettings, getApprovedEnrollmentsByUser } from "@/lib/firestore";
 import { toast } from "sonner";
@@ -29,6 +29,7 @@ const studentLinks = [
   { href: "/dashboard/student/calendar", label: "Calendar", icon: Calendar },
   { href: "/dashboard/student/tests", label: "Tests & Quizzes", icon: ClipboardList },
   { href: "/dashboard/student/projects", label: "Projects", icon: FolderOpen },
+  { href: "/dashboard/student/documents", label: "Documents", icon: FileText },
   { href: "/live-classes", label: "Live Classes", icon: Radio },
   { href: "/certificates", label: "My Certificates", icon: Award },
 ];

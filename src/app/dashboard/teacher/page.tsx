@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { 
   getCoursesByTeacher, getEnrollmentsByCourse, getSchedulesByTeacher, 
-  getAllUsers, createSchedule, createAssignment, recordAttendance, 
+  getAllUsers, createSchedule, assignProject, recordAttendance, 
   createNotification, getSiteSettings, endSchedule, getEnrollmentsByCourse as getEnrByCourse
 } from "@/lib/firestore";
 import { 
@@ -71,6 +71,8 @@ export default function TeacherOverview() {
 
   // Assignment Form state
   const [assignCourseId, setAssignCourseId] = useState("");
+  const [assignStudentId, setAssignStudentId] = useState("all");
+  const [assignStudents, setAssignStudents] = useState<any[]>([]);
   const [assignTitle, setAssignTitle] = useState("");
   const [assignDesc, setAssignDesc] = useState("");
   const [assignDue, setAssignDue] = useState("");
@@ -165,6 +167,14 @@ export default function TeacherOverview() {
     }
   }, [attCourseId, courseEarnings, allStudentsList]);
 
+  // Keep the project-assignment student picker in sync with the selected course
+  useEffect(() => {
+    const currentCourse = courseEarnings.find((ce) => ce.id === assignCourseId);
+    const enrolledIds: string[] = currentCourse?.studentIds || [];
+    setAssignStudents(allStudentsList.filter((s) => enrolledIds.includes(s.id)));
+    setAssignStudentId("all");
+  }, [assignCourseId, courseEarnings, allStudentsList]);
+
   // Upcoming = not yet ended (includes "live now" sessions)
   const upcoming = schedules
     .filter((s: any) => !s.ended)
@@ -187,31 +197,43 @@ export default function TeacherOverview() {
     }
     try {
       const course = courses.find(c => c.id === schedCourseId);
+
+      // Resolve the students who should see this class. Classes created here
+      // are intended for every currently enrolled student in the course, but we
+      // store the ids + names so teachers can see exactly who the class is for.
+      let approvedStudents: any[] = [];
+      try {
+        const [enrollments, allUsrs] = await Promise.all([
+          getEnrByCourse(schedCourseId),
+          getAllUsers()
+        ]);
+        const usersMap: Record<string, any> = {};
+        (allUsrs as any[]).forEach((u: any) => { usersMap[u.id] = u; });
+        approvedStudents = (enrollments as any[])
+          .filter((e: any) => e.status === "approved")
+          .map((e: any) => usersMap[(e as any).userId])
+          .filter(Boolean);
+      } catch { /* non-fatal */ }
+
       await createSchedule({
         courseId: schedCourseId,
         courseName: course?.title || "Coding Class",
         teacherId: user?.id,
         teacherName: user?.name,
         datetime: schedDate,
-        meetLink: schedLink
+        meetLink: schedLink,
+        studentIds: approvedStudents.map((s) => s.id),
+        studentNames: approvedStudents.map((s) => s.name),
       });
       toast.success("Live class scheduled successfully!");
 
       // Notify enrolled students via WhatsApp
-      if (course) {
+      if (course && approvedStudents.length > 0) {
         try {
-          const [enrollments, allUsrs] = await Promise.all([
-            getEnrByCourse(schedCourseId),
-            getAllUsers()
-          ]);
-          const usersMap: Record<string, any> = {};
-          (allUsrs as any[]).forEach((u: any) => { usersMap[u.id] = u; });
           const formattedDate = schedDate ? format(new Date(schedDate), "EEEE, MMM d 'at' h:mm a") : "";
-          const approved = (enrollments as any[]).filter((e: any) => e.status === "approved");
           let notified = 0;
-          for (const enr of approved) {
-            const student = usersMap[(enr as any).userId];
-            if (student?.phone) {
+          for (const student of approvedStudents) {
+            if (student.phone) {
               const ph = student.phone.replace(/\D/g, "");
               const msg = encodeURIComponent(
                 `Dear ${student.name},\n\nThis is ${user?.name || "Your Instructor"}, your Instructor at Jrcodecrafterz.\nYour class on "${course.title}" is scheduled for ${formattedDate}.\n\nPlease join on time via your dashboard at www.jrcodecrafterz.com.\n\nRegards,\n${user?.name || "Your Instructor"}\nJrcodecrafterz.`
@@ -240,34 +262,50 @@ export default function TeacherOverview() {
       toast.error("Please fill in all assignment details");
       return;
     }
-    try {
-      await createAssignment({
-        courseId: assignCourseId,
-        title: assignTitle,
-        description: assignDesc,
-        dueDate: assignDue,
-        teacherId: user?.id,
-        createdAt: new Date().toISOString()
-      });
+    if (!user?.id) { toast.error("You must be signed in"); return; }
 
-      // Notify students in the course
-      const currentCourse = courseEarnings.find(ce => ce.id === assignCourseId);
-      const studentIds = currentCourse?.studentIds || [];
-      await Promise.all(studentIds.map((sid: any) => 
-        createNotification({
-          userId: sid,
-          title: "New Assignment Published",
-          message: `New assignment "${assignTitle}" due on ${assignDue}. Check your dashboard.`
+    // Resolve the target students. Writing to the `projects` collection (the
+    // same collection the student projects page reads) is what makes the
+    // project show up on the student's dashboard.
+    const targets = assignStudentId === "all"
+      ? assignStudents
+      : assignStudents.filter((s) => s.id === assignStudentId);
+
+    if (targets.length === 0) {
+      toast.error("No enrolled students found for this course");
+      return;
+    }
+
+    try {
+      await Promise.all(targets.map((student) =>
+        assignProject({
+          courseId: assignCourseId,
+          teacherId: user.id,
+          studentId: student.id,
+          studentName: student.name,
+          title: assignTitle,
+          description: assignDesc,
+          dueDate: assignDue,
         })
       ));
 
-      toast.success("Assignment assigned successfully!");
+      // Notify the same students who received the project
+      await Promise.all(targets.map((student) =>
+        createNotification({
+          userId: student.id,
+          title: "New Project Assigned",
+          message: `New project "${assignTitle}" is due on ${assignDue}. Check My Projects.`
+        })
+      ));
+
+      toast.success(`Project assigned to ${targets.length} student${targets.length !== 1 ? "s" : ""}!`);
       setAssignTitle("");
       setAssignDesc("");
       setAssignDue("");
+      setAssignStudentId("all");
       setActiveTab("overview");
     } catch {
-      toast.error("Failed to assign homework");
+      toast.error("Failed to assign project");
     }
   };
 
@@ -478,6 +516,9 @@ export default function TeacherOverview() {
                                     </div>
                                     <div className="min-w-0">
                                       <p className="font-bold text-slate-800 text-sm truncate">{s.courseName}</p>
+                                      <p className="text-[11px] font-semibold text-slate-500 mt-0.5 truncate">
+                                        For: {s.studentNames?.length ? s.studentNames.join(", ") : "All enrolled students"}
+                                      </p>
                                       <div className="flex items-center gap-1.5 mt-1 text-slate-400">
                                         <Clock className="w-3.5 h-3.5 text-slate-400" />
                                         <span className="text-xs font-semibold">
@@ -727,6 +768,23 @@ export default function TeacherOverview() {
                     </div>
 
                     <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Assign To</label>
+                      <select 
+                        value={assignStudentId}
+                        onChange={(e) => setAssignStudentId(e.target.value)}
+                        className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm bg-white font-semibold"
+                      >
+                        <option value="all">All enrolled students ({assignStudents.length})</option>
+                        {assignStudents.map((student) => (
+                          <option key={student.id} value={student.id}>{student.name} ({student.email})</option>
+                        ))}
+                      </select>
+                      {assignStudents.length === 0 && (
+                        <p className="text-xs text-amber-600 font-semibold mt-1">No enrolled students in this course yet.</p>
+                      )}
+                    </div>
+
+                    <div>
                       <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Project Assignment Title</label>
                       <input 
                         type="text" 
@@ -758,8 +816,8 @@ export default function TeacherOverview() {
                       />
                     </div>
 
-                    <Button type="submit" className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl shadow-lg shadow-orange-500/20">
-                      Assign Homework Project
+                    <Button type="submit" disabled={assignStudents.length === 0} className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl shadow-lg shadow-orange-500/20">
+                      Assign Project to {assignStudentId === "all" ? `${assignStudents.length} Student${assignStudents.length !== 1 ? "s" : ""}` : "Student"}
                     </Button>
                   </form>
                 </CardContent>

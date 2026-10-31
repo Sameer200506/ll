@@ -5,8 +5,8 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { getAllSchedules, getEnrollmentsByUser } from "@/lib/firestore";
-import { Calendar, Video, Clock, ExternalLink, MapPin } from "lucide-react";
+import { getAllSchedules, getApprovedEnrollmentsByUser, isScheduleForStudent } from "@/lib/firestore";
+import { Calendar, Video, Clock, ExternalLink, FileText } from "lucide-react";
 import { format, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isToday, isPast } from "date-fns";
 
 export default function StudentCalendarPage() {
@@ -19,8 +19,17 @@ export default function StudentCalendarPage() {
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const allSchedules = await getAllSchedules();
-      setSchedules(allSchedules);
+      const [allSchedules, enrollments] = await Promise.all([
+        getAllSchedules(),
+        getApprovedEnrollmentsByUser(user.id),
+      ]);
+      const myCourseIds = new Set(enrollments.map((e: any) => e.courseId));
+      const mySchedules = (allSchedules as any[]).filter(
+        (schedule) =>
+          myCourseIds.has(schedule.courseId) &&
+          isScheduleForStudent(schedule, user.id)
+      );
+      setSchedules(mySchedules);
       setLoading(false);
     })();
   }, [user]);
@@ -37,7 +46,7 @@ export default function StudentCalendarPage() {
   const nextMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
 
   const upcomingAll = schedules
-    .filter((s: any) => s.datetime && new Date(s.datetime) > new Date())
+    .filter((s: any) => s.datetime && !s.ended && new Date(s.datetime) > new Date())
     .sort((a: any, b: any) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime());
 
   return (
@@ -129,14 +138,16 @@ export default function StudentCalendarPage() {
 }
 
 function EventCard({ schedule, compact = false }: { schedule: any; compact?: boolean }) {
-  const past = schedule.datetime && isPast(new Date(schedule.datetime));
+  const ended = schedule.ended === true;
+  const past = ended || (schedule.datetime && isPast(new Date(schedule.datetime)));
+  const materials = Array.isArray(schedule.materials) ? schedule.materials : [];
   return (
     <Card className="card-hover">
       <CardContent className="pt-4 pb-4">
         <div className="flex items-start gap-3">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: past ? "rgba(239,68,68,0.15)" : "rgba(59,130,246,0.15)" }}>
-            <Video className="w-5 h-5" style={{ color: past ? "var(--danger)" : "var(--info)" }} />
+            style={{ background: past ? "rgba(100,116,139,0.15)" : "rgba(59,130,246,0.15)" }}>
+            <Video className="w-5 h-5" style={{ color: past ? "var(--text-secondary)" : "var(--info)" }} />
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-sm">{schedule.courseName}</p>
@@ -147,9 +158,37 @@ function EventCard({ schedule, compact = false }: { schedule: any; compact?: boo
                 {schedule.datetime ? format(new Date(schedule.datetime), "MMM d, yyyy · h:mm a") : "TBD"}
               </span>
             </div>
-            {!compact && (
+
+            {/* Documents / links shared by the teacher for this class */}
+            {(materials.length > 0 || schedule.recordingUrl) && (
+              <div className="mt-2 space-y-1.5">
+                {schedule.recordingUrl && (
+                  <a
+                    href={schedule.recordingUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-md border border-blue-200 text-blue-600 hover:bg-blue-50 mr-1.5"
+                  >
+                    <Video className="w-3 h-3" /> Class Recording
+                  </a>
+                )}
+                {materials.map((material: any, idx: number) => (
+                  <a
+                    key={`${material.url}-${idx}`}
+                    href={material.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-md border border-orange-200 text-orange-600 hover:bg-orange-50 mr-1.5"
+                  >
+                    <FileText className="w-3 h-3" /> {material.name}
+                  </a>
+                ))}
+              </div>
+            )}
+
+            {!compact && !ended && (
               <a href={schedule.meetLink} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block">
-                <Button size="sm" className="h-7 px-3 text-xs gap-1" disabled={past}>
+                <Button size="sm" className="h-7 px-3 text-xs gap-1" disabled={!!past}>
                   {past ? "Ended" : <><ExternalLink className="w-3 h-3" /> Join Class</>}
                 </Button>
               </a>
@@ -160,6 +199,11 @@ function EventCard({ schedule, compact = false }: { schedule: any; compact?: boo
                   <ExternalLink className="w-3 h-3" /> Join
                 </Button>
               </a>
+            )}
+            {ended && (
+              <p className="text-[11px] font-semibold mt-2" style={{ color: "var(--text-secondary)" }}>
+                Class finished — materials above remain available.
+              </p>
             )}
           </div>
         </div>

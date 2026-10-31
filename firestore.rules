@@ -161,16 +161,17 @@ service cloud.firestore {
       allow create: if isStaff();
       
       // Updates:
-      // - Students can ONLY update their submission link & status to "submitted"
+      // - Students can ONLY change their submission fields while the project is
+      //   still "assigned". Using diff().affectedKeys() avoids comparing fields
+      //   that may not exist on the document (e.g. grade/feedback before grading).
       // - Teachers and admins can update everything (grading, feedback, etc.)
       allow update: if isStaff() || (
         isAuth() && 
-        resource.data.studentId == request.auth.uid && 
-        request.resource.data.studentId == resource.data.studentId &&
-        request.resource.data.courseId == resource.data.courseId &&
-        request.resource.data.title == resource.data.title &&
-        request.resource.data.grade == resource.data.grade && 
-        request.resource.data.feedback == resource.data.feedback
+        resource.data.studentId == request.auth.uid &&
+        resource.data.status == 'assigned' &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'submissionLink', 'submittedAt']) &&
+        request.resource.data.status == 'submitted'
       );
       
       // Only admins can delete projects

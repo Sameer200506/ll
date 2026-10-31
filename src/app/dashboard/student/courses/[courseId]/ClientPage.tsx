@@ -6,13 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent } from "@/components/ui/card";
-import { getCourse, getLessonsByCourse, getProgress, markLessonComplete, isEnrolled, getProjectsByStudent, submitProject, createCertificate, getCertificatesByStudent, getResourcesByCourse } from "@/lib/firestore";
-import { CheckCircle2, Circle, PlayCircle, ArrowLeft, Lock, FolderOpen, Send, ExternalLink, Award, FileText, Link2 } from "lucide-react";
+import { getCourse, getLessonsByCourse, getProgress, markLessonComplete, isEnrolled, getProjectsByStudent, submitProject, getResourcesByCourse, getQuizzesByCourse, getSchedulesByCourse, isScheduleForStudent } from "@/lib/firestore";
+import { CheckCircle2, Circle, PlayCircle, ArrowLeft, Lock, FolderOpen, Send, ExternalLink, Award, FileText, Link2, ClipboardList, Video } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
+import { format } from "date-fns";
 
 function getYouTubeId(url: string) {
   const match = url.match(/(?:youtu\.be\/|v=)([^&?\s]+)/);
@@ -21,13 +21,14 @@ function getYouTubeId(url: string) {
 
 export default function CoursePlayerPage({ params }: { params: Promise<{ courseId: string }> }) {
   const { user } = useAuth();
-  const router = useRouter();
   const [courseId, setCourseId] = useState("");
   const [course, setCourse] = useState<any>(null);
   const [lessons, setLessons] = useState<any[]>([]);
   const [completedLessons, setCompletedLessons] = useState<string[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [resources, setResources] = useState<any[]>([]);
+  const [quizzes, setQuizzes] = useState<any[]>([]);
+  const [classSchedules, setClassSchedules] = useState<any[]>([]);
   const [submittingIds, setSubmittingIds] = useState<Record<string, boolean>>({});
   const [links, setLinks] = useState<Record<string, string>>({});
   const [activeLesson, setActiveLesson] = useState<any>(null);
@@ -43,13 +44,15 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ courseI
   useEffect(() => {
     if (!courseId || !user) return;
     (async () => {
-      const [c, l, enr, prog, projs, res] = await Promise.all([
+      const [c, l, enr, prog, projs, res, qzs, scheds] = await Promise.all([
         getCourse(courseId),
         getLessonsByCourse(courseId),
         isEnrolled(user.id, courseId),
         getProgress(user.id, courseId),
         getProjectsByStudent(user.id, courseId),
         getResourcesByCourse(courseId),
+        getQuizzesByCourse(courseId),
+        getSchedulesByCourse(courseId),
       ]);
       setCourse(c);
       setLessons(l);
@@ -57,6 +60,8 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ courseI
       setCompletedLessons(prog);
       setProjects(projs);
       setResources(res);
+      setQuizzes(qzs || []);
+      setClassSchedules((scheds || []).filter((s: any) => isScheduleForStudent(s, user.id)));
       if (l.length > 0) setActiveLesson(l[0]);
       setLoading(false);
     })();
@@ -251,6 +256,34 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ courseI
                   );
                 })}
               </div>
+
+              {/* Quizzes attached to this course are accessible right here */}
+              {quizzes.length > 0 && (
+                <div className="mt-5 pt-4 border-t" style={{ borderColor: "var(--border)" }}>
+                  <h3 className="font-semibold mb-3 text-sm uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
+                    Quizzes ({quizzes.length})
+                  </h3>
+                  <div className="space-y-2">
+                    {quizzes.map((quiz: any) => (
+                      <Link
+                        key={quiz.id}
+                        href={`/dashboard/student/tests/${quiz.id}`}
+                        className="flex items-center gap-2.5 p-3 rounded-xl border hover:border-orange-300 hover:bg-orange-50/40 transition-colors"
+                        style={{ borderColor: "var(--border)" }}
+                      >
+                        <ClipboardList className="w-4 h-4 flex-shrink-0" style={{ color: "var(--accent)" }} />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold truncate">{quiz.title}</p>
+                          <p className="text-[10px]" style={{ color: "var(--text-secondary)" }}>
+                            {quiz.questions?.length ?? 0} question{(quiz.questions?.length ?? 0) !== 1 ? "s" : ""}
+                          </p>
+                        </div>
+                        <ExternalLink className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--text-secondary)" }} />
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="resources" className="flex-1 overflow-y-auto mt-0 rounded-2xl border p-4" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
@@ -299,42 +332,96 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ courseI
 
             <TabsContent value="replays" className="flex-1 overflow-y-auto mt-0 rounded-2xl border p-4" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
               <h3 className="font-semibold mb-3 text-sm uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
-                Live Class Replays
+                Class Replays &amp; Materials
               </h3>
-              {course?.replayUrl ? (
-                <div className="space-y-4">
-                  <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
-                    Watch the recording of the latest live class interactive session:
-                  </p>
-                  {getYouTubeId(course.replayUrl) ? (
-                    <div className="rounded-xl overflow-hidden bg-black aspect-video w-full">
-                      <iframe
-                        className="w-full h-full"
-                        src={`https://www.youtube.com/embed/${getYouTubeId(course.replayUrl)}?rel=0`}
-                        title="Live Class Replay"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      />
-                    </div>
-                  ) : (
-                    <div className="p-4 rounded-xl border border-dashed flex flex-col items-center justify-center text-center">
-                      <PlayCircle className="w-10 h-10 text-orange-500 mb-2" />
-                      <p className="text-xs font-semibold mb-2">Replay Link Ready</p>
-                      <a
-                        href={course.replayUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs bg-orange-500 text-white font-semibold px-4 py-2 rounded-xl hover:bg-orange-600 transition-colors inline-flex items-center gap-1"
-                      >
-                        Open Replay Link <ExternalLink className="w-3 h-3" />
-                      </a>
-                    </div>
-                  )}
-                </div>
-              ) : (
+              {classSchedules.filter((s) => s.recordingUrl || (Array.isArray(s.materials) && s.materials.length > 0)).length === 0 && !course?.replayUrl ? (
                 <div className="text-center py-10 opacity-60">
                   <PlayCircle className="w-8 h-8 mx-auto mb-2" />
-                  <p className="text-sm">No live class replays available yet.</p>
+                  <p className="text-sm">No live class replays or materials available yet.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {classSchedules
+                    .filter((s) => s.recordingUrl || (Array.isArray(s.materials) && s.materials.length > 0))
+                    .sort((a, b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime())
+                    .map((s) => (
+                      <div key={s.id} className="p-3 rounded-xl border" style={{ background: "var(--background)", borderColor: "var(--border)" }}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold truncate">{s.courseName || course?.title}</p>
+                            <p className="text-[10px]" style={{ color: "var(--text-secondary)" }}>
+                              {s.datetime ? format(new Date(s.datetime), "MMM d, yyyy · h:mm a") : "Date TBD"}
+                            </p>
+                          </div>
+                          <Badge variant={s.ended ? "secondary" : "default"} className="text-[9px] uppercase flex-shrink-0">
+                            {s.ended ? "Finished" : "Class"}
+                          </Badge>
+                        </div>
+
+                        {s.recordingUrl && (
+                          <a
+                            href={s.recordingUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-2.5 flex items-center gap-2 p-2.5 rounded-lg border border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100 transition-colors text-xs font-bold"
+                          >
+                            <Video className="w-4 h-4 flex-shrink-0 text-orange-500" />
+                            <span className="flex-1">Watch Class Recording</span>
+                            <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                          </a>
+                        )}
+
+                        {Array.isArray(s.materials) && s.materials.length > 0 && (
+                          <div className="mt-2.5 space-y-1.5">
+                            <p className="text-[9px] uppercase font-bold tracking-wider" style={{ color: "var(--text-secondary)" }}>
+                              Documents
+                            </p>
+                            {s.materials.map((m: any, i: number) => (
+                              <a
+                                key={`${m.url}-${i}`}
+                                href={m.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-2 p-2 rounded-lg border hover:bg-slate-50 transition-colors"
+                                style={{ borderColor: "var(--border)" }}
+                              >
+                                <FileText className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--accent)" }} />
+                                <span className="text-[11px] font-medium truncate flex-1">{m.name}</span>
+                                <ExternalLink className="w-3 h-3 flex-shrink-0" style={{ color: "var(--text-secondary)" }} />
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+
+                  {course?.replayUrl && (
+                    <div className="p-3 rounded-xl border" style={{ background: "var(--background)", borderColor: "var(--border)" }}>
+                      <p className="text-xs font-semibold mb-2">Course Replay</p>
+                      {getYouTubeId(course.replayUrl) ? (
+                        <div className="rounded-xl overflow-hidden bg-black aspect-video w-full">
+                          <iframe
+                            className="w-full h-full"
+                            src={`https://www.youtube.com/embed/${getYouTubeId(course.replayUrl)}?rel=0`}
+                            title="Live Class Replay"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                          />
+                        </div>
+                      ) : (
+                        <a
+                          href={course.replayUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 p-2.5 rounded-lg border border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100 transition-colors text-xs font-bold"
+                        >
+                          <PlayCircle className="w-4 h-4 flex-shrink-0 text-orange-500" />
+                          <span className="flex-1">Open Replay Link</span>
+                          <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                        </a>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </TabsContent>

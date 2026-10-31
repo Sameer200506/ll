@@ -238,6 +238,26 @@ export async function getSchedulesByTeacher(teacherId: string) {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
+export async function getSchedulesByCourse(courseId: string) {
+  const q = query(collection(db, "schedules"), where("courseId", "==", courseId));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as any[];
+}
+
+/**
+ * A schedule is visible to a student when:
+ * - it has no explicit student targeting (legacy / whole-course class), or
+ * - the student's uid is in `studentIds`.
+ * Course enrolment is checked separately by the caller.
+ */
+export function isScheduleForStudent(schedule: any, studentId: string) {
+  if (!schedule) return false;
+  if (Array.isArray(schedule.studentIds) && schedule.studentIds.length > 0) {
+    return schedule.studentIds.includes(studentId);
+  }
+  return true;
+}
+
 export async function deleteSchedule(scheduleId: string) {
   await deleteDoc(doc(db, "schedules", scheduleId));
 }

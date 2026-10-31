@@ -9,11 +9,12 @@ import { Button } from "@/components/ui/button";
 import {
   getAllSchedules, createSchedule, updateSchedule, deleteSchedule, endSchedule,
   getAllCourses, getCoursesByTeacher, getApprovedEnrollmentsByUser,
-  getEnrollmentsByCourse, getAllUsers, getSiteSettings
+  getEnrollmentsByCourse, getAllUsers, getSiteSettings, isScheduleForStudent
 } from "@/lib/firestore";
 import {
   Radio, Calendar, Clock, Plus, ExternalLink, Pencil, Trash2,
-  Video, X, Check, Monitor, StopCircle, MessageCircle
+  Video, X, Check, Monitor, StopCircle, MessageCircle, Users,
+  FileText
 } from "lucide-react";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
@@ -40,6 +41,10 @@ interface LiveClass {
   description?: string;
   createdAt?: string;
   ended?: boolean;
+  studentIds?: string[];
+  studentNames?: string[];
+  materials?: { name: string; url: string; type?: string }[];
+  recordingUrl?: string;
 }
 
 export default function LiveClassesPage() {
@@ -56,6 +61,8 @@ export default function LiveClassesPage() {
   const [formDate, setFormDate] = useState("");
   const [formLink, setFormLink] = useState("");
   const [formDesc, setFormDesc] = useState("");
+  const [formStudentIds, setFormStudentIds] = useState<string[]>([]);
+  const [courseStudents, setCourseStudents] = useState<any[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const liveClassDateRef = useRef<HTMLInputElement>(null);
 
@@ -79,7 +86,11 @@ export default function LiveClassesPage() {
 
       if (user?.role === "student") {
         const enrolledCourseIds = new Set(approvedEnrollments.map((e: any) => e.courseId));
-        setClasses((allClasses as LiveClass[]).filter((c) => enrolledCourseIds.has(c.courseId)));
+        setClasses((allClasses as LiveClass[]).filter(
+          (c) =>
+            enrolledCourseIds.has(c.courseId) &&
+            isScheduleForStudent(c, user.id)
+        ));
       } else {
         setClasses(allClasses as LiveClass[]);
       }
@@ -99,21 +110,50 @@ export default function LiveClassesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  // Load the approved students for the selected course so the teacher can
+  // choose exactly who the class is for.
+  useEffect(() => {
+    if (!showForm || !formCourseId || !isTeacherOrAdmin) {
+      setCourseStudents([]);
+      return;
+    }
+    (async () => {
+      try {
+        const [enrollments, allUsers] = await Promise.all([
+          getEnrollmentsByCourse(formCourseId),
+          getAllUsers(),
+        ]);
+        const usersMap: Record<string, any> = {};
+        (allUsers as any[]).forEach((u: any) => { usersMap[u.id] = u; });
+        const students = (enrollments as any[])
+          .filter((e: any) => e.status === "approved")
+          .map((e: any) => usersMap[(e as any).userId])
+          .filter(Boolean);
+        setCourseStudents(students);
+        setFormStudentIds((prev) => (prev.length > 0 ? prev : students.map((s: any) => s.id)));
+      } catch {
+        setCourseStudents([]);
+      }
+    })();
+  }, [showForm, formCourseId, isTeacherOrAdmin]);
+
   const resetForm = () => {
     setFormDate("");
     setFormLink("");
     setFormDesc("");
+    setFormStudentIds([]);
     setEditingClass(null);
     setShowForm(false);
     if (courses.length > 0) setFormCourseId(courses[0].id);
   };
 
-  const handleOpenEdit = (cls: LiveClass) => {
+  const handleOpenEdit = (cls: any) => {
     setEditingClass(cls);
     setFormCourseId(cls.courseId);
     setFormDate(cls.datetime ? cls.datetime.slice(0, 16) : "");
     setFormLink(cls.meetLink || "");
     setFormDesc(cls.description || "");
+    setFormStudentIds(Array.isArray(cls.studentIds) ? cls.studentIds : []);
     setShowForm(true);
   };
 
@@ -165,6 +205,7 @@ export default function LiveClassesPage() {
     setSubmitting(true);
     try {
       const course = courses.find((c) => c.id === formCourseId);
+      const selectedStudents = courseStudents.filter((s) => formStudentIds.includes(s.id));
       const payload = {
         courseId: formCourseId,
         courseName: course?.title || "Live Class",
@@ -173,6 +214,8 @@ export default function LiveClassesPage() {
         datetime: formDate,
         meetLink: formLink,
         description: formDesc,
+        studentIds: selectedStudents.map((s) => s.id),
+        studentNames: selectedStudents.map((s) => s.name),
       };
 
       if (editingClass) {
@@ -229,6 +272,16 @@ export default function LiveClassesPage() {
   // For display: a class whose datetime has passed but not yet ended shows as "Live Now"
   const isLiveNow = (cls: LiveClass) => cls.datetime && new Date(cls.datetime) <= now && !cls.ended;
 
+  const targetNamesFor = (cls: any) => {
+    if (Array.isArray(cls.studentNames) && cls.studentNames.length > 0) {
+      return cls.studentNames.join(", ");
+    }
+    if (Array.isArray(cls.studentIds) && cls.studentIds.length > 0) {
+      return cls.studentIds.join(", ");
+    }
+    return "All enrolled students";
+  };
+
   return (
     <DashboardLayout
       title="Live Classes"
@@ -281,13 +334,57 @@ export default function LiveClassesPage() {
                       <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Select Course</label>
                       <select
                         value={formCourseId}
-                        onChange={(e) => setFormCourseId(e.target.value)}
+                        onChange={(e) => { setFormCourseId(e.target.value); setFormStudentIds([]); }}
                         className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-orange-500 text-sm bg-white font-semibold"
                       >
                         {courses.map((c) => (
                           <option key={c.id} value={c.id}>{c.title}</option>
                         ))}
                       </select>
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-bold text-slate-500 uppercase">Visible To</label>
+                        {courseStudents.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setFormStudentIds(
+                              formStudentIds.length === courseStudents.length ? [] : courseStudents.map((s: any) => s.id)
+                            )}
+                            className="text-[11px] font-bold text-orange-500 hover:underline"
+                          >
+                            {formStudentIds.length === courseStudents.length ? "Clear all" : "Select all"}
+                          </button>
+                        )}
+                      </div>
+                      {courseStudents.length === 0 ? (
+                        <p className="text-xs text-slate-400 font-semibold p-3 rounded-xl border border-dashed border-slate-200">
+                          No approved students in this course yet.
+                        </p>
+                      ) : (
+                        <div className="max-h-36 overflow-y-auto rounded-xl border border-slate-200 p-2 space-y-1">
+                          {courseStudents.map((student: any) => (
+                            <label key={student.id} className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-50 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={formStudentIds.includes(student.id)}
+                                onChange={() => setFormStudentIds((prev) =>
+                                  prev.includes(student.id)
+                                    ? prev.filter((id) => id !== student.id)
+                                    : [...prev, student.id]
+                                )}
+                                className="w-4 h-4 accent-orange-500"
+                              />
+                              <span className="text-sm font-semibold text-slate-700">{student.name}</span>
+                              <span className="text-[11px] text-slate-400 ml-auto">{student.email}</span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                      <p className="text-[11px] text-slate-400 font-semibold mt-1">
+                        Only selected students will see this class and its documents.
+                      </p>
                     </div>
 
                     <div>
@@ -421,6 +518,9 @@ export default function LiveClassesPage() {
 
                       <p className="font-bold text-slate-900 text-sm mb-1 line-clamp-2">{cls.courseName}</p>
                       <p className="text-xs text-slate-400 font-semibold mb-2">by {cls.teacherName}</p>
+                      <p className="text-[11px] text-slate-500 font-semibold mb-2 flex items-center gap-1 line-clamp-2">
+                        <Users className="w-3 h-3 flex-shrink-0" /> For: {targetNamesFor(cls)}
+                      </p>
                       {cls.description && (
                         <p className="text-xs text-slate-500 line-clamp-2 mb-2">{cls.description}</p>
                       )}
@@ -502,13 +602,43 @@ export default function LiveClassesPage() {
                       </Badge>
                     </div>
                     <p className="font-bold text-slate-700 text-sm mb-1 line-clamp-2">{cls.courseName}</p>
-                    <p className="text-xs text-slate-400 font-semibold mb-3">by {cls.teacherName}</p>
+                    <p className="text-xs text-slate-400 font-semibold mb-1">by {cls.teacherName}</p>
+                    <p className="text-[11px] text-slate-500 font-semibold mb-3 flex items-center gap-1 line-clamp-1">
+                      <Users className="w-3 h-3 flex-shrink-0" /> For: {targetNamesFor(cls)}
+                    </p>
                     <div className="flex items-center gap-1.5 text-slate-400">
                       <Clock className="w-3.5 h-3.5" />
                       <span className="text-xs font-bold">
                         {cls.datetime ? format(new Date(cls.datetime), "MMM d, yyyy · h:mm a") : "TBD"}
                       </span>
                     </div>
+
+                    {/* Documents and recordings stay available after the class ends */}
+                    {((cls as any).materials?.length > 0 || (cls as any).recordingUrl) && (
+                      <div className="mt-3 space-y-1.5">
+                        {(cls as any).recordingUrl && (
+                          <a
+                            href={(cls as any).recordingUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 text-[11px] font-bold text-blue-600 hover:underline"
+                          >
+                            <Video className="w-3.5 h-3.5" /> Watch class recording
+                          </a>
+                        )}
+                        {((cls as any).materials || []).map((material: any, idx: number) => (
+                          <a
+                            key={`${material.url}-${idx}`}
+                            href={material.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 text-[11px] font-bold text-orange-600 hover:underline"
+                          >
+                            <FileText className="w-3.5 h-3.5" /> {material.name}
+                          </a>
+                        ))}
+                      </div>
+                    )}
                     {isTeacherOrAdmin && (
                       <div className="flex gap-2 mt-3">
                         <button
