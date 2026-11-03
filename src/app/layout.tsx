@@ -55,6 +55,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 if ('serviceWorker' in navigator) {
                   window.addEventListener('load', function() {
                     navigator.serviceWorker.register('/sw.js').then(function(reg) {
+                      // Pick up the fixed worker immediately instead of waiting
+                      // for the browser's ~24h update check.
+                      reg.update().catch(function() {});
                       console.log('ServiceWorker registered');
                     }).catch(function(err) {
                       console.log('ServiceWorker registration failed:', err);
