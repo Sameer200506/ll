@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { createUserWithEmailAndPassword, onAuthStateChanged, signOut as firebaseSignOut } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { initializeApp, deleteApp } from "firebase/app";
+import { createUserWithEmailAndPassword, getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut as firebaseSignOut } from "firebase/auth";
+import { doc, getFirestore, setDoc } from "firebase/firestore";
+import { auth, firebaseConfig } from "@/lib/firebase";
 import {
   getAllUsers,
   getAllCourses,
@@ -18,7 +20,6 @@ import {
   approveEnrollment,
   declineEnrollment,
   enrollUser,
-  createUserDoc,
   updateSiteSettings,
   getSiteSettings,
   createCourse,
@@ -74,7 +75,9 @@ import { motion, AnimatePresence } from "framer-motion";
 
 type Tab = "overview" | "leads" | "students" | "teachers" | "courses" | "enrollments" | "payments" | "cms" | "search" | "certificates";
 
-const ADMIN_PASSWORD = "admin123";
+// Dedicated Firebase admin account. The password typed at the gate IS this
+// account's password, so no credential is embedded in the client bundle.
+const ADMIN_EMAIL = "admin@jrcodecrafterz.com";
 
 // Animation settings
 const fadeInUp = {
@@ -101,13 +104,30 @@ export default function AdminPage() {
   });
   const [pw, setPw] = useState("");
   const [authReady, setAuthReady] = useState(false);
+  const [authBusy, setAuthBusy] = useState(false);
 
-  const handleAdminAuth = () => {
-    if (pw === ADMIN_PASSWORD) {
+  const handleAdminAuth = async () => {
+    if (!pw.trim() || authBusy) return;
+
+    setAuthBusy(true);
+    try {
+      // Authenticate against the real admin account. Passing the gate is what
+      // grants the Firestore permissions needed for students, teachers, leads,
+      // enrollments and settings.
+      await signInWithEmailAndPassword(auth, ADMIN_EMAIL, pw);
       setAuthed(true);
       sessionStorage.setItem("admin_authed", "true");
-    } else {
-      toast.error("Wrong password");
+    } catch (err: any) {
+      console.error("Admin sign-in failed", err);
+      if (err?.code === "auth/too-many-requests") {
+        toast.error("Too many attempts. Please wait and try again.");
+      } else if (err?.code === "auth/network-request-failed") {
+        toast.error("Network error. Check your connection and try again.");
+      } else {
+        toast.error("Wrong password");
+      }
+    } finally {
+      setAuthBusy(false);
     }
   };
 
@@ -306,7 +326,20 @@ export default function AdminPage() {
   useEffect(() => {
     // Wait for Firebase to restore the persisted staff session. Firing the
     // protected reads before this completes makes them look empty on refresh.
-    const unsubscribe = onAuthStateChanged(auth, () => setAuthReady(true));
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setAuthReady(true);
+      // A stale gate flag without the admin session would render zeros, so
+      // return to the password gate instead.
+      if (user?.email !== ADMIN_EMAIL) {
+        setAuthed((current) => {
+          if (current) {
+            sessionStorage.removeItem("admin_authed");
+            return false;
+          }
+          return current;
+        });
+      }
+    });
     return () => unsubscribe();
   }, []);
 
@@ -401,16 +434,34 @@ export default function AdminPage() {
     }
     setCreatingTeacher(true);
     try {
-      // Create Firebase Auth account
-      const cred = await createUserWithEmailAndPassword(auth, teacherEmail.trim(), teacherPassword);
-      // Write Firestore doc with teacher role
-      await createUserDoc(cred.user.uid, {
-        name: teacherName.trim(),
-        email: teacherEmail.trim(),
-        role: "teacher",
-      });
-      // Immediately sign out the newly created teacher account
-      await firebaseSignOut(auth);
+      // Use a throwaway Firebase app so creating the teacher does not replace
+      // the signed-in admin session (which would blank the dashboard).
+      const secondaryApp = initializeApp(
+        firebaseConfig,
+        `admin-create-${Date.now()}-${Math.random().toString(36).slice(2)}`
+      );
+      const secondaryAuth = getAuth(secondaryApp);
+      const secondaryDb = getFirestore(secondaryApp);
+
+      try {
+        const cred = await createUserWithEmailAndPassword(
+          secondaryAuth,
+          teacherEmail.trim(),
+          teacherPassword
+        );
+        // Write the profile from the new teacher's own session so the signup
+        // Firestore rule (owner-only create) is satisfied.
+        await setDoc(doc(secondaryDb, "users", cred.user.uid), {
+          name: teacherName.trim(),
+          email: teacherEmail.trim(),
+          role: "teacher",
+          createdAt: new Date().toISOString(),
+        });
+        await firebaseSignOut(secondaryAuth);
+      } finally {
+        await deleteApp(secondaryApp);
+      }
+
       // Show credentials card
       setCreatedTeacher({ name: teacherName.trim(), email: teacherEmail.trim(), password: teacherPassword });
       toast.success(`Teacher account created for ${teacherName.trim()}!`);
@@ -626,14 +677,15 @@ export default function AdminPage() {
               placeholder="Enter admin password"
               value={pw}
               onChange={(e) => setPw(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleAdminAuth()}
+              onKeyDown={(e) => e.key === "Enter" && !authBusy && handleAdminAuth()}
               className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm outline-none focus:border-orange-500 text-slate-800 font-semibold"
             />
             <Button
               className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl shadow-lg"
               onClick={handleAdminAuth}
+              disabled={authBusy}
             >
-              Access Admin Panel
+              {authBusy ? "Signing in..." : "Access Admin Panel"}
             </Button>
           </div>
           <p className="text-[10px] text-center text-slate-400 mt-6 font-bold uppercase tracking-wider">
@@ -694,9 +746,14 @@ export default function AdminPage() {
             <RefreshCw className="w-4 h-4" /> Refresh Firestore Data
           </button>
           <button
-            onClick={() => {
+            onClick={async () => {
               sessionStorage.removeItem("admin_authed");
               setAuthed(false);
+              try {
+                await firebaseSignOut(auth);
+              } catch (error) {
+                console.error("Admin sign-out failed", error);
+              }
             }}
             className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold w-full text-red-500 hover:opacity-80 transition-opacity cursor-pointer"
           >
