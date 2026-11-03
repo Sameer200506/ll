@@ -2,6 +2,8 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { CourseThumbnail } from "@/components/courses/CourseThumbnail";
+import { useStaticRouteParam } from "@/lib/useStaticRouteParam";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -187,7 +189,7 @@ function QuizBuilder({
 
 export default function CourseDetailPage({ params }: { params: Promise<{ courseId: string }> }) {
   const { user } = useAuth();
-  const [courseId, setCourseId] = useState("");
+  const courseId = useStaticRouteParam(params, "courseId");
 
   const [course, setCourse] = useState<any>(null);
   const [lessons, setLessons] = useState<any[]>([]);
@@ -232,7 +234,6 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
   const [certificates, setCertificates] = useState<any[]>([]);
   const [recommendingCert, setRecommendingCert] = useState<string | null>(null);
 
-  useEffect(() => { params.then((p) => setCourseId(p.courseId)); }, [params]);
   useEffect(() => { if (!courseId) return; loadAll(); }, [courseId]);
 
   const handleRecommendCertificate = async (student: any) => {
@@ -426,7 +427,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
       {/* Hero banner */}
       {course && (
         <div className="relative rounded-2xl overflow-hidden mb-6 flex items-end" style={{ minHeight: 140, background: course.thumbnailUrl ? undefined : "linear-gradient(135deg, var(--surface-2), var(--accent)22)" }}>
-          {course.thumbnailUrl && <img src={course.thumbnailUrl} alt={course.title} className="absolute inset-0 w-full h-full object-cover" />}
+          {course.thumbnailUrl && <CourseThumbnail src={course.thumbnailUrl} alt={course.title} className="absolute inset-0 w-full h-full object-cover" />}
           <div className="relative z-10 p-5 w-full" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.65), transparent)" }}>
             <h1 className="text-xl font-bold text-white drop-shadow">{course.title}</h1>
             <div className="flex items-center gap-3 mt-1 flex-wrap">

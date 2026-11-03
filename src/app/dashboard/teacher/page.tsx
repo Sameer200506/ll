@@ -67,6 +67,8 @@ export default function TeacherOverview() {
   const [schedCourseId, setSchedCourseId] = useState("");
   const [schedDate, setSchedDate] = useState("");
   const [schedLink, setSchedLink] = useState("");
+  const [schedStudents, setSchedStudents] = useState<any[]>([]);
+  const [schedStudentIds, setSchedStudentIds] = useState<string[]>([]);
   const schedDateRef = useRef<HTMLInputElement>(null);
 
   // Assignment Form state
@@ -85,6 +87,43 @@ export default function TeacherOverview() {
   const [attCourseId, setAttCourseId] = useState("");
   const [attStudents, setAttStudents] = useState<any[]>([]);
   const [attendanceRecords, setAttendanceRecords] = useState<{ [studentId: string]: boolean }>({});
+
+  // Load the approved students for the selected course so the teacher can
+  // choose exactly who should receive this live class.
+  useEffect(() => {
+    if (!schedCourseId) {
+      setSchedStudents([]);
+      setSchedStudentIds([]);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const [enrollments, allUsers] = await Promise.all([
+          getEnrollmentsByCourse(schedCourseId),
+          getAllUsers(),
+        ]);
+        const usersMap: Record<string, any> = {};
+        (allUsers as any[]).forEach((u: any) => { usersMap[u.id] = u; });
+        const students = (enrollments as any[])
+          .filter((e: any) => e.status === "approved")
+          .map((e: any) => usersMap[e.userId])
+          .filter(Boolean);
+        if (!cancelled) {
+          setSchedStudents(students);
+          setSchedStudentIds(students.map((s: any) => s.id));
+        }
+      } catch {
+        if (!cancelled) {
+          setSchedStudents([]);
+          setSchedStudentIds([]);
+        }
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [schedCourseId]);
 
   const fetchData = async () => {
     if (!user) return;
@@ -195,25 +234,17 @@ export default function TeacherOverview() {
       toast.error("Please fill in date and meet link");
       return;
     }
+    if (schedStudents.length === 0) {
+      toast.error("This course has no approved students to invite");
+      return;
+    }
+    if (schedStudentIds.length === 0) {
+      toast.error("Select at least one student for this class");
+      return;
+    }
     try {
       const course = courses.find(c => c.id === schedCourseId);
-
-      // Resolve the students who should see this class. Classes created here
-      // are intended for every currently enrolled student in the course, but we
-      // store the ids + names so teachers can see exactly who the class is for.
-      let approvedStudents: any[] = [];
-      try {
-        const [enrollments, allUsrs] = await Promise.all([
-          getEnrByCourse(schedCourseId),
-          getAllUsers()
-        ]);
-        const usersMap: Record<string, any> = {};
-        (allUsrs as any[]).forEach((u: any) => { usersMap[u.id] = u; });
-        approvedStudents = (enrollments as any[])
-          .filter((e: any) => e.status === "approved")
-          .map((e: any) => usersMap[(e as any).userId])
-          .filter(Boolean);
-      } catch { /* non-fatal */ }
+      const selectedStudents = schedStudents.filter((student) => schedStudentIds.includes(student.id));
 
       await createSchedule({
         courseId: schedCourseId,
@@ -222,17 +253,17 @@ export default function TeacherOverview() {
         teacherName: user?.name,
         datetime: schedDate,
         meetLink: schedLink,
-        studentIds: approvedStudents.map((s) => s.id),
-        studentNames: approvedStudents.map((s) => s.name),
+        studentIds: selectedStudents.map((s) => s.id),
+        studentNames: selectedStudents.map((s) => s.name),
       });
       toast.success("Live class scheduled successfully!");
 
-      // Notify enrolled students via WhatsApp
-      if (course && approvedStudents.length > 0) {
+      // Notify only the selected students via WhatsApp
+      if (course && selectedStudents.length > 0) {
         try {
           const formattedDate = schedDate ? format(new Date(schedDate), "EEEE, MMM d 'at' h:mm a") : "";
           let notified = 0;
-          for (const student of approvedStudents) {
+          for (const student of selectedStudents) {
             if (student.phone) {
               const ph = student.phone.replace(/\D/g, "");
               const msg = encodeURIComponent(
@@ -649,6 +680,50 @@ export default function TeacherOverview() {
                       >
                         {courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
                       </select>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-bold text-slate-500 uppercase">Visible To</label>
+                        {schedStudents.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setSchedStudentIds(
+                              schedStudentIds.length === schedStudents.length ? [] : schedStudents.map((s) => s.id)
+                            )}
+                            className="text-[11px] font-bold text-orange-500 hover:underline"
+                          >
+                            {schedStudentIds.length === schedStudents.length ? "Clear all" : "Select all"}
+                          </button>
+                        )}
+                      </div>
+                      {schedStudents.length === 0 ? (
+                        <p className="text-xs text-slate-400 font-semibold p-3 rounded-xl border border-dashed border-slate-200">
+                          No approved students in this course yet.
+                        </p>
+                      ) : (
+                        <div className="max-h-36 overflow-y-auto rounded-xl border border-slate-200 p-2 space-y-1">
+                          {schedStudents.map((student) => (
+                            <label key={student.id} className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-50 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={schedStudentIds.includes(student.id)}
+                                onChange={() => setSchedStudentIds((prev) =>
+                                  prev.includes(student.id)
+                                    ? prev.filter((id) => id !== student.id)
+                                    : [...prev, student.id]
+                                )}
+                                className="w-4 h-4 accent-orange-500"
+                              />
+                              <span className="text-sm font-semibold text-slate-700">{student.name}</span>
+                              <span className="text-[11px] text-slate-400 ml-auto">{student.email}</span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                      <p className="text-[11px] text-slate-400 font-semibold mt-1">
+                        Only selected students will see this class and its documents.
+                      </p>
                     </div>
 
                     <div>

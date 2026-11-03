@@ -6,8 +6,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+import { CourseThumbnail } from "@/components/courses/CourseThumbnail";
 import { getEnrollmentsByUser, getAllCourses, getLessonsByCourse, getProgress } from "@/lib/firestore";
-import { BookOpen, Video, ArrowRight, PlayCircle } from "lucide-react";
+import { BookOpen, Video, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
 export default function MyCoursesPage() {
@@ -69,11 +70,12 @@ export default function MyCoursesPage() {
                   {/* Thumbnail */}
                   <div className="relative h-40 rounded-t-2xl overflow-hidden flex items-center justify-center"
                     style={{ background: "linear-gradient(135deg, var(--surface-2), var(--accent)22)" }}>
-                    {course.thumbnailUrl ? (
-                      <img src={course.thumbnailUrl} alt={course.title} className="w-full h-full object-cover" />
-                    ) : (
-                      <PlayCircle className="w-14 h-14 opacity-40" style={{ color: "var(--accent)" }} />
-                    )}
+                    <CourseThumbnail
+                      src={course.thumbnailUrl}
+                      alt={course.title}
+                      className="w-full h-full object-cover"
+                      iconClassName="w-14 h-14 text-orange-400/40"
+                    />
                     <div className="absolute top-3 right-3">
                       <Badge variant="secondary">{pct}%</Badge>
                     </div>

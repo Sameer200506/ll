@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { createUserWithEmailAndPassword, signOut as firebaseSignOut } from "firebase/auth";
+import { createUserWithEmailAndPassword, onAuthStateChanged, signOut as firebaseSignOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import {
   getAllUsers,
@@ -100,6 +100,7 @@ export default function AdminPage() {
     return false;
   });
   const [pw, setPw] = useState("");
+  const [authReady, setAuthReady] = useState(false);
 
   const handleAdminAuth = () => {
     if (pw === ADMIN_PASSWORD) {
@@ -112,6 +113,7 @@ export default function AdminPage() {
 
   const [tab, setTab] = useState<Tab>("overview");
   const [loading, setLoading] = useState(true);
+  const [loadWarning, setLoadWarning] = useState("");
   const [search, setSearch] = useState("");
 
   const [users, setUsers] = useState<any[]>([]);
@@ -206,33 +208,63 @@ export default function AdminPage() {
 
   const fetchAll = async () => {
     setLoading(true);
+    setLoadWarning("");
+
+    // Load each collection independently. A permission error on one protected
+    // collection (for example when nobody is signed in) must not blank out the
+    // public course catalogue and every other admin section.
+    const results = await Promise.allSettled([
+      getAllUsers(),
+      getAllCourses(),
+      getAllEnrollments(),
+      getAllQuizResults(),
+      getAllProjects(),
+      getAllLeads(),
+      getAllCertificates(),
+      getAllSchedules(),
+      getAllQuizzes(),
+      getAllAttendance(),
+      getAllLessons(),
+      getAllProgress(),
+    ]);
+    const [u, c, e, qr, pr, ld, certs, sch, qz, att, les, prog] = results;
+
+    if (u.status === "fulfilled") setUsers(u.value as any[]);
+    else console.error("Admin: failed to load users", u.reason);
+    if (c.status === "fulfilled") setCourses(c.value as any[]);
+    else console.error("Admin: failed to load courses", c.reason);
+    if (e.status === "fulfilled") setEnrollments(e.value as any[]);
+    else console.error("Admin: failed to load enrollments", e.reason);
+    if (qr.status === "fulfilled") setQuizResults(qr.value as any[]);
+    else console.error("Admin: failed to load quiz results", qr.reason);
+    if (pr.status === "fulfilled") setProjects(pr.value as any[]);
+    else console.error("Admin: failed to load projects", pr.reason);
+    if (ld.status === "fulfilled") setLeads(ld.value as any[]);
+    else console.error("Admin: failed to load leads", ld.reason);
+    if (certs.status === "fulfilled") setCertificates(certs.value as any[]);
+    else console.error("Admin: failed to load certificates", certs.reason);
+    if (sch.status === "fulfilled") setSchedules(sch.value as any[]);
+    else console.error("Admin: failed to load schedules", sch.reason);
+    if (qz.status === "fulfilled") setQuizzes(qz.value as any[]);
+    else console.error("Admin: failed to load quizzes", qz.reason);
+    if (att.status === "fulfilled") setAttendance(att.value as any[]);
+    else console.error("Admin: failed to load attendance", att.reason);
+    if (les.status === "fulfilled") setLessons(les.value as any[]);
+    else console.error("Admin: failed to load lessons", les.reason);
+    if (prog.status === "fulfilled") setProgress(prog.value as any[]);
+    else console.error("Admin: failed to load progress", prog.reason);
+
+    if (u.status === "rejected") {
+      setLoadWarning(
+        "Student and teacher lists need a signed-in teacher or admin account. Courses and other public data are still shown below. Sign in, then press Refresh Firestore Data."
+      );
+    } else if (c.status === "rejected" || e.status === "rejected") {
+      setLoadWarning(
+        "Courses or enrollments could not be loaded. Other admin sections are still available; press Refresh Firestore Data to try again."
+      );
+    }
+
     try {
-      const [u, c, e, qr, pr, ld, certs, sch, qz, att, les, prog] = await Promise.all([
-        getAllUsers(),
-        getAllCourses(),
-        getAllEnrollments(),
-        getAllQuizResults(),
-        getAllProjects(),
-        getAllLeads(),
-        getAllCertificates(),
-        getAllSchedules(),
-        getAllQuizzes(),
-        getAllAttendance(),
-        getAllLessons(),
-        getAllProgress(),
-      ]);
-      setUsers(u as any[]);
-      setCourses(c as any[]);
-      setEnrollments(e as any[]);
-      setQuizResults(qr as any[]);
-      setProjects(pr as any[]);
-      setLeads(ld as any[]);
-      setCertificates(certs as any[]);
-      setSchedules(sch as any[]);
-      setQuizzes(qz as any[]);
-      setAttendance(att as any[]);
-      setLessons(les as any[]);
-      setProgress(prog as any[]);
       // Also load site settings
       const settings = await getSiteSettings();
       if (settings) {
@@ -262,15 +294,25 @@ export default function AdminPage() {
         setCertSignature(settings.certSignature || "Platform Director");
         setAmountPerLiveClass(settings.amountPerLiveClass !== undefined ? settings.amountPerLiveClass : 200);
       }
-    } catch {
-      toast.error("Failed to load data");
+    } catch (error) {
+      console.error("Admin: failed to load site settings", error);
+      setLoadWarning((current) =>
+        current || "Site settings could not be loaded. The rest of the admin data is still available."
+      );
     }
     setLoading(false);
   };
 
   useEffect(() => {
-    if (authed) fetchAll();
-  }, [authed]);
+    // Wait for Firebase to restore the persisted staff session. Firing the
+    // protected reads before this completes makes them look empty on refresh.
+    const unsubscribe = onAuthStateChanged(auth, () => setAuthReady(true));
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (authed && authReady) fetchAll();
+  }, [authed, authReady]);
 
   const handleDeleteUser = async (uid: string, name: string) => {
     if (!confirm(`Delete user "${name}"? This cannot be undone.`)) return;
@@ -702,6 +744,21 @@ export default function AdminPage() {
 
         {/* Content View */}
         <div className="p-8">
+          {loadWarning && (
+            <div className="mb-6 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-left">
+              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-bold text-amber-900">Some admin data could not be loaded</p>
+                <p className="text-xs font-medium text-amber-800 mt-1">{loadWarning}</p>
+              </div>
+              <Link
+                href="/login"
+                className="shrink-0 rounded-xl bg-amber-600 px-3 py-2 text-xs font-bold text-white hover:bg-amber-700"
+              >
+                Sign In
+              </Link>
+            </div>
+          )}
           <AnimatePresence mode="wait">
             <motion.div
               key={tab}

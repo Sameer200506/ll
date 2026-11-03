@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent } from "@/components/ui/card";
 import { getCourse, getLessonsByCourse, getProgress, markLessonComplete, isEnrolled, getProjectsByStudent, submitProject, getResourcesByCourse, getQuizzesByCourse, getSchedulesByCourse, isScheduleForStudent } from "@/lib/firestore";
+import { getYouTubeId, resolveDocumentUrl, resolveExternalUrl } from "@/lib/media";
+import { useStaticRouteParam } from "@/lib/useStaticRouteParam";
 import { CheckCircle2, Circle, PlayCircle, ArrowLeft, Lock, FolderOpen, Send, ExternalLink, Award, FileText, Link2, ClipboardList, Video } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -14,14 +16,9 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
-function getYouTubeId(url: string) {
-  const match = url.match(/(?:youtu\.be\/|v=)([^&?\s]+)/);
-  return match ? match[1] : null;
-}
-
 export default function CoursePlayerPage({ params }: { params: Promise<{ courseId: string }> }) {
   const { user } = useAuth();
-  const [courseId, setCourseId] = useState("");
+  const courseId = useStaticRouteParam(params, "courseId");
   const [course, setCourse] = useState<any>(null);
   const [lessons, setLessons] = useState<any[]>([]);
   const [completedLessons, setCompletedLessons] = useState<string[]>([]);
@@ -34,36 +31,39 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ courseI
   const [activeLesson, setActiveLesson] = useState<any>(null);
   const [enrolled, setEnrolled] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [markingComplete, setMarkingComplete] = useState(false);
   const [generatingCert, setGeneratingCert] = useState(false);
 
   useEffect(() => {
-    params.then((p) => setCourseId(p.courseId));
-  }, [params]);
-
-  useEffect(() => {
     if (!courseId || !user) return;
     (async () => {
-      const [c, l, enr, prog, projs, res, qzs, scheds] = await Promise.all([
-        getCourse(courseId),
-        getLessonsByCourse(courseId),
-        isEnrolled(user.id, courseId),
-        getProgress(user.id, courseId),
-        getProjectsByStudent(user.id, courseId),
-        getResourcesByCourse(courseId),
-        getQuizzesByCourse(courseId),
-        getSchedulesByCourse(courseId),
-      ]);
-      setCourse(c);
-      setLessons(l);
-      setEnrolled(enr);
-      setCompletedLessons(prog);
-      setProjects(projs);
-      setResources(res);
-      setQuizzes(qzs || []);
-      setClassSchedules((scheds || []).filter((s: any) => isScheduleForStudent(s, user.id)));
-      if (l.length > 0) setActiveLesson(l[0]);
-      setLoading(false);
+      try {
+        const [c, l, enr, prog, projs, res, qzs, scheds] = await Promise.all([
+          getCourse(courseId),
+          getLessonsByCourse(courseId),
+          isEnrolled(user.id, courseId),
+          getProgress(user.id, courseId),
+          getProjectsByStudent(user.id, courseId),
+          getResourcesByCourse(courseId),
+          getQuizzesByCourse(courseId),
+          getSchedulesByCourse(courseId),
+        ]);
+        setCourse(c);
+        setLessons(l);
+        setEnrolled(enr);
+        setCompletedLessons(prog);
+        setProjects(projs);
+        setResources(res);
+        setQuizzes(qzs || []);
+        setClassSchedules((scheds || []).filter((s: any) => isScheduleForStudent(s, user.id)));
+        if (l.length > 0) setActiveLesson(l[0]);
+      } catch (error) {
+        console.error("Failed to load course player:", error);
+        setLoadError("We could not load this course. Please refresh and try again.");
+      } finally {
+        setLoading(false);
+      }
     })();
   }, [courseId, user]);
 
@@ -123,6 +123,21 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ courseI
     </DashboardLayout>
   );
 
+  if (loadError) return (
+    <DashboardLayout title={course?.title ?? "Course Player"} description="" allowedRoles={["student"]}>
+      <Card>
+        <CardContent className="pt-6 text-center py-20">
+          <Lock className="w-12 h-12 mx-auto mb-4" style={{ color: "var(--text-secondary)" }} />
+          <h3 className="text-lg font-semibold mb-2">Course could not be loaded</h3>
+          <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>{loadError}</p>
+          <Link href="/dashboard/student/courses">
+            <Button>Back to My Courses</Button>
+          </Link>
+        </CardContent>
+      </Card>
+    </DashboardLayout>
+  );
+
   if (!enrolled) return (
     <DashboardLayout title={course?.title ?? "Course"} description="" allowedRoles={["student"]}>
       <Card>
@@ -140,6 +155,16 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ courseI
 
   const pct = lessons.length > 0 ? Math.round((completedLessons.length / lessons.length) * 100) : 0;
   const videoId = activeLesson ? getYouTubeId(activeLesson.youtubeUrl || "") : null;
+  const lessonPdfUrl = resolveDocumentUrl(activeLesson?.pdfUrl);
+  const lessonResourceUrl = !videoId ? resolveExternalUrl(activeLesson?.youtubeUrl) : "";
+  const curriculumUrl = resolveDocumentUrl(course?.curriculumPdfUrl);
+  const courseReplayUrl = resolveExternalUrl(course?.replayUrl);
+  const usableResources = (resources || [])
+    .map((resource: any) => ({
+      ...resource,
+      resolvedUrl: resolveExternalUrl(resource.url),
+    }))
+    .filter((resource: any) => resource.resolvedUrl);
 
   return (
     <DashboardLayout title={course?.title ?? "Course Player"} description={`by ${course?.teacherName}`} allowedRoles={["student"]}>
@@ -174,15 +199,26 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ courseI
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {activeLesson?.pdfUrl && (
+              {lessonResourceUrl && (
                 <a
-                  href={activeLesson.pdfUrl}
+                  href={lessonResourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-blue-50 text-blue-600 border border-blue-200/50 hover:bg-blue-100 transition-colors shadow-sm cursor-pointer"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Open Lesson Resource</span>
+                </a>
+              )}
+              {lessonPdfUrl && (
+                <a
+                  href={lessonPdfUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-orange-50 text-orange-655 border border-orange-200/50 hover:bg-orange-100 transition-colors shadow-sm cursor-pointer"
                 >
                   <FileText className="w-3.5 h-3.5 text-orange-500" />
-                  <span>Download Lesson PDF</span>
+                  <span>Open Lesson PDF</span>
                 </a>
               )}
               {!completedLessons.includes(activeLesson?.id ?? "") ? (
@@ -290,27 +326,27 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ courseI
               <h3 className="font-semibold mb-3 text-sm uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
                 Learning Resources
               </h3>
-              {course?.curriculumPdfUrl && (
+              {curriculumUrl && (
                 <a
-                  href={course.curriculumPdfUrl}
+                  href={curriculumUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2.5 p-3 rounded-xl border border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100 transition-colors mb-4 text-xs font-bold"
                 >
                   <FileText className="w-4 h-4 text-orange-500 flex-shrink-0" />
-                  <span>Download Curriculum PDF</span>
+                  <span>Open Course Curriculum</span>
                 </a>
               )}
-              {resources.length === 0 ? (
+              {usableResources.length === 0 ? (
                 <p className="text-xs text-center py-6" style={{ color: "var(--text-secondary)" }}>
                   No extra resources posted yet.
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {resources.map((res: any) => (
+                  {usableResources.map((res: any) => (
                     <a
                       key={res.id}
-                      href={res.url}
+                      href={res.resolvedUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-3 p-3 rounded-xl border hover:bg-slate-50 transition-colors"
@@ -334,7 +370,7 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ courseI
               <h3 className="font-semibold mb-3 text-sm uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
                 Class Replays &amp; Materials
               </h3>
-              {classSchedules.filter((s) => s.recordingUrl || (Array.isArray(s.materials) && s.materials.length > 0)).length === 0 && !course?.replayUrl ? (
+              {classSchedules.filter((s) => resolveExternalUrl(s.recordingUrl) || (Array.isArray(s.materials) && s.materials.some((m: any) => resolveExternalUrl(m?.url)))).length === 0 && !courseReplayUrl ? (
                 <div className="text-center py-10 opacity-60">
                   <PlayCircle className="w-8 h-8 mx-auto mb-2" />
                   <p className="text-sm">No live class replays or materials available yet.</p>
@@ -342,67 +378,74 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ courseI
               ) : (
                 <div className="space-y-3">
                   {classSchedules
-                    .filter((s) => s.recordingUrl || (Array.isArray(s.materials) && s.materials.length > 0))
+                    .filter((s) => resolveExternalUrl(s.recordingUrl) || (Array.isArray(s.materials) && s.materials.some((m: any) => resolveExternalUrl(m?.url))))
                     .sort((a, b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime())
-                    .map((s) => (
-                      <div key={s.id} className="p-3 rounded-xl border" style={{ background: "var(--background)", borderColor: "var(--border)" }}>
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="text-xs font-semibold truncate">{s.courseName || course?.title}</p>
-                            <p className="text-[10px]" style={{ color: "var(--text-secondary)" }}>
-                              {s.datetime ? format(new Date(s.datetime), "MMM d, yyyy · h:mm a") : "Date TBD"}
-                            </p>
+                    .map((s) => {
+                      const recordingUrl = resolveExternalUrl(s.recordingUrl);
+                      const materials = (Array.isArray(s.materials) ? s.materials : [])
+                        .map((m: any) => ({ ...m, resolvedUrl: resolveExternalUrl(m?.url) }))
+                        .filter((m: any) => m.resolvedUrl);
+
+                      return (
+                        <div key={s.id} className="p-3 rounded-xl border" style={{ background: "var(--background)", borderColor: "var(--border)" }}>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold truncate">{s.courseName || course?.title}</p>
+                              <p className="text-[10px]" style={{ color: "var(--text-secondary)" }}>
+                                {s.datetime ? format(new Date(s.datetime), "MMM d, yyyy · h:mm a") : "Date TBD"}
+                              </p>
+                            </div>
+                            <Badge variant={s.ended ? "secondary" : "default"} className="text-[9px] uppercase flex-shrink-0">
+                              {s.ended ? "Finished" : "Class"}
+                            </Badge>
                           </div>
-                          <Badge variant={s.ended ? "secondary" : "default"} className="text-[9px] uppercase flex-shrink-0">
-                            {s.ended ? "Finished" : "Class"}
-                          </Badge>
+
+                          {recordingUrl && (
+                            <a
+                              href={recordingUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mt-2.5 flex items-center gap-2 p-2.5 rounded-lg border border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100 transition-colors text-xs font-bold"
+                            >
+                              <Video className="w-4 h-4 flex-shrink-0 text-orange-500" />
+                              <span className="flex-1">Watch Class Recording</span>
+                              <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                            </a>
+                          )}
+
+                          {materials.length > 0 && (
+                            <div className="mt-2.5 space-y-1.5">
+                              <p className="text-[9px] uppercase font-bold tracking-wider" style={{ color: "var(--text-secondary)" }}>
+                                Documents
+                              </p>
+                              {materials.map((m: any, i: number) => (
+                                <a
+                                  key={`${m.resolvedUrl}-${i}`}
+                                  href={m.resolvedUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-2 p-2 rounded-lg border hover:bg-slate-50 transition-colors"
+                                  style={{ borderColor: "var(--border)" }}
+                                >
+                                  <FileText className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--accent)" }} />
+                                  <span className="text-[11px] font-medium truncate flex-1">{m.name}</span>
+                                  <ExternalLink className="w-3 h-3 flex-shrink-0" style={{ color: "var(--text-secondary)" }} />
+                                </a>
+                              ))}
+                            </div>
+                          )}
                         </div>
+                      );
+                    })}
 
-                        {s.recordingUrl && (
-                          <a
-                            href={s.recordingUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="mt-2.5 flex items-center gap-2 p-2.5 rounded-lg border border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100 transition-colors text-xs font-bold"
-                          >
-                            <Video className="w-4 h-4 flex-shrink-0 text-orange-500" />
-                            <span className="flex-1">Watch Class Recording</span>
-                            <ExternalLink className="w-3 h-3 flex-shrink-0" />
-                          </a>
-                        )}
-
-                        {Array.isArray(s.materials) && s.materials.length > 0 && (
-                          <div className="mt-2.5 space-y-1.5">
-                            <p className="text-[9px] uppercase font-bold tracking-wider" style={{ color: "var(--text-secondary)" }}>
-                              Documents
-                            </p>
-                            {s.materials.map((m: any, i: number) => (
-                              <a
-                                key={`${m.url}-${i}`}
-                                href={m.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-2 p-2 rounded-lg border hover:bg-slate-50 transition-colors"
-                                style={{ borderColor: "var(--border)" }}
-                              >
-                                <FileText className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--accent)" }} />
-                                <span className="text-[11px] font-medium truncate flex-1">{m.name}</span>
-                                <ExternalLink className="w-3 h-3 flex-shrink-0" style={{ color: "var(--text-secondary)" }} />
-                              </a>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-
-                  {course?.replayUrl && (
+                  {courseReplayUrl && (
                     <div className="p-3 rounded-xl border" style={{ background: "var(--background)", borderColor: "var(--border)" }}>
                       <p className="text-xs font-semibold mb-2">Course Replay</p>
-                      {getYouTubeId(course.replayUrl) ? (
+                      {getYouTubeId(courseReplayUrl) ? (
                         <div className="rounded-xl overflow-hidden bg-black aspect-video w-full">
                           <iframe
                             className="w-full h-full"
-                            src={`https://www.youtube.com/embed/${getYouTubeId(course.replayUrl)}?rel=0`}
+                            src={`https://www.youtube.com/embed/${getYouTubeId(courseReplayUrl)}?rel=0`}
                             title="Live Class Replay"
                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                             allowFullScreen
@@ -410,7 +453,7 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ courseI
                         </div>
                       ) : (
                         <a
-                          href={course.replayUrl}
+                          href={courseReplayUrl}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-2 p-2.5 rounded-lg border border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100 transition-colors text-xs font-bold"

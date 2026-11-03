@@ -1,16 +1,17 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState, use } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { CourseThumbnail } from "@/components/courses/CourseThumbnail";
+import { useStaticRouteParam } from "@/lib/useStaticRouteParam";
 import { getCourse, getLessonsByCourse } from "@/lib/firestore";
 import { ArrowLeft, PlayCircle, Star, Lock, Laptop, Users, Trophy, Sparkles } from "lucide-react";
 
 export default function CourseDetailsPage({ params }: { params: Promise<{ courseId: string }> }) {
   const { user } = useAuth();
-  const resolvedParams = use(params);
-  const courseId = resolvedParams.courseId;
+  const courseId = useStaticRouteParam(params, "courseId");
 
   const [course, setCourse] = useState<any>(null);
   const [lessons, setLessons] = useState<any[]>([]);
@@ -20,19 +21,26 @@ export default function CourseDetailsPage({ params }: { params: Promise<{ course
     if (!courseId) return;
     (async () => {
       try {
-        const [c, l] = await Promise.all([
-          getCourse(courseId),
-          getLessonsByCourse(courseId),
-        ]);
+        const c = await getCourse(courseId);
         setCourse(c);
-        setLessons(l);
+
+        // Lessons require an authenticated session. Guests can still view the
+        // public course overview without triggering a permission error.
+        if (user) {
+          try {
+            setLessons(await getLessonsByCourse(courseId));
+          } catch (error) {
+            console.error("Failed to load course lessons:", error);
+            setLessons([]);
+          }
+        }
       } catch (err) {
         console.error(err);
       } finally {
         setLoading(false);
       }
     })();
-  }, [courseId]);
+  }, [courseId, user]);
 
   if (loading) {
     return (
@@ -202,11 +210,12 @@ export default function CourseDetailsPage({ params }: { params: Promise<{ course
               
               {/* Thumbnail Display */}
               <div className="h-44 rounded-2xl overflow-hidden flex items-center justify-center relative bg-orange-50/50 border border-orange-100">
-                {course.thumbnailUrl ? (
-                  <img src={course.thumbnailUrl} alt={course.title} className="w-full h-full object-cover" />
-                ) : (
-                  <PlayCircle className="w-16 h-16 opacity-30 text-orange-500 animate-pulse" />
-                )}
+                <CourseThumbnail
+                  src={course.thumbnailUrl}
+                  alt={course.title}
+                  className="w-full h-full object-cover"
+                  iconClassName="w-16 h-16 text-orange-400/50"
+                />
               </div>
 
               {/* Pricing section */}

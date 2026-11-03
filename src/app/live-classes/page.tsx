@@ -7,9 +7,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  getAllSchedules, createSchedule, updateSchedule, deleteSchedule, endSchedule,
-  getAllCourses, getCoursesByTeacher, getApprovedEnrollmentsByUser,
-  getEnrollmentsByCourse, getAllUsers, getSiteSettings, isScheduleForStudent
+  getAllSchedules, getSchedulesForStudent, getSchedulesByTeacher,
+  createSchedule, updateSchedule, deleteSchedule, endSchedule,
+  getAllCourses, getCoursesByTeacher,
+  getEnrollmentsByCourse, getAllUsers, getSiteSettings
 } from "@/lib/firestore";
 import {
   Radio, Calendar, Clock, Plus, ExternalLink, Pencil, Trash2,
@@ -71,30 +72,21 @@ export default function LiveClassesPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [allClasses, allCourses, approvedEnrollments, settings] = await Promise.all([
-        getAllSchedules(),
+      const [allClasses, allCourses, settings] = await Promise.all([
+        user?.role === "student"
+          ? getSchedulesForStudent(user.id)
+          : user?.role === "teacher"
+            ? getSchedulesByTeacher(user.id)
+            : getAllSchedules(),
         isTeacherOrAdmin && user?.role === "teacher"
           ? getCoursesByTeacher(user.id)
           : getAllCourses(),
-        user?.role === "student"
-          ? getApprovedEnrollmentsByUser(user.id)
-          : Promise.resolve([]),
         getSiteSettings()
       ]);
 
       if (settings?.whatsappNumber) setWhatsappNumber(settings.whatsappNumber);
 
-      if (user?.role === "student") {
-        const enrolledCourseIds = new Set(approvedEnrollments.map((e: any) => e.courseId));
-        setClasses((allClasses as LiveClass[]).filter(
-          (c) =>
-            enrolledCourseIds.has(c.courseId) &&
-            isScheduleForStudent(c, user.id)
-        ));
-      } else {
-        setClasses(allClasses as LiveClass[]);
-      }
-
+      setClasses(allClasses as LiveClass[]);
       setCourses(allCourses as any[]);
       if (allCourses.length > 0 && !formCourseId) {
         setFormCourseId((allCourses as any[])[0].id);
@@ -157,8 +149,8 @@ export default function LiveClassesPage() {
     setShowForm(true);
   };
 
-  // Build a WhatsApp link to notify enrolled students when a class is scheduled
-  const buildWhatsAppLinks = async (courseId: string, courseName: string, datetime: string) => {
+  // Build a WhatsApp link to notify the selected students when a class is scheduled
+  const buildWhatsAppLinks = async (courseId: string, courseName: string, datetime: string, studentIds: string[]) => {
     try {
       const [enrollments, allUsers] = await Promise.all([
         getEnrollmentsByCourse(courseId),
@@ -166,8 +158,11 @@ export default function LiveClassesPage() {
       ]);
       const usersMap: Record<string, any> = {};
       (allUsers as any[]).forEach((u: any) => { usersMap[u.id] = u; });
+      const selectedIds = new Set(studentIds);
 
-      const approvedEnr = (enrollments as any[]).filter((e: any) => e.status === "approved");
+      const approvedEnr = (enrollments as any[]).filter(
+        (e: any) => e.status === "approved" && (selectedIds.size === 0 || selectedIds.has(e.userId))
+      );
       const formattedDate = datetime ? format(new Date(datetime), "EEEE, MMM d 'at' h:mm a") : "";
 
       // Open WhatsApp for each enrolled student who has a phone number
@@ -202,6 +197,14 @@ export default function LiveClassesPage() {
       toast.error("Date/time and meet link are required");
       return;
     }
+    if (courseStudents.length === 0) {
+      toast.error("This course has no approved students to invite");
+      return;
+    }
+    if (formStudentIds.length === 0) {
+      toast.error("Select at least one student for this class");
+      return;
+    }
     setSubmitting(true);
     try {
       const course = courses.find((c) => c.id === formCourseId);
@@ -226,7 +229,7 @@ export default function LiveClassesPage() {
         toast.success("Live class scheduled!");
         // Prompt teacher to send WhatsApp notifications
         if (course) {
-          await buildWhatsAppLinks(formCourseId, course.title, formDate);
+          await buildWhatsAppLinks(formCourseId, course.title, formDate, payload.studentIds);
         }
       }
       resetForm();
@@ -545,7 +548,7 @@ export default function LiveClassesPage() {
                           <>
                             {/* WhatsApp notify button */}
                             <button
-                              onClick={() => buildWhatsAppLinks(cls.courseId, cls.courseName, cls.datetime)}
+                              onClick={() => buildWhatsAppLinks(cls.courseId, cls.courseName, cls.datetime, Array.isArray(cls.studentIds) ? cls.studentIds : [])}
                               className="w-9 h-9 rounded-xl bg-green-50 border border-green-200 flex items-center justify-center text-green-600 hover:bg-green-100 transition-colors"
                               title="Notify students via WhatsApp"
                             >

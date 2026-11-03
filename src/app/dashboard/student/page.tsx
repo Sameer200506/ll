@@ -8,9 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { 
-  getEnrollmentsByUser, getAllCourses, getAllSchedules, 
+  getApprovedEnrollmentsByUser, getAllCourses, getSchedulesForStudent,
   getQuizResultsByUser, getProgress, getNotificationsByUser,
-  markNotificationRead, isScheduleForStudent
+  markNotificationRead
 } from "@/lib/firestore";
 import { 
   BookOpen, Calendar, Trophy, TrendingUp, Video, Clock, ArrowRight, 
@@ -56,29 +56,33 @@ export default function StudentOverview() {
     if (!user) return;
     setProfileName(user.name);
     (async () => {
-      const [enr, allCourses, scheds, qResults, notifs] = await Promise.all([
-        getEnrollmentsByUser(user.id),
-        getAllCourses(),
-        getAllSchedules(),
-        getQuizResultsByUser(user.id),
-        getNotificationsByUser(user.id)
-      ]);
-      setEnrollments(enr);
-      setCourses(allCourses);
-      setSchedules(scheds);
-      setResults(qResults);
-      setNotifications(notifs);
-      setLoading(false);
+      try {
+        const [enr, allCourses, scheds, qResults, notifs] = await Promise.all([
+          getApprovedEnrollmentsByUser(user.id),
+          getAllCourses(),
+          getSchedulesForStudent(user.id),
+          getQuizResultsByUser(user.id),
+          getNotificationsByUser(user.id)
+        ]);
+        setEnrollments(enr);
+        setCourses(allCourses);
+        setSchedules(scheds);
+        setResults(qResults);
+        setNotifications(notifs);
+      } catch (error) {
+        console.error("Failed to load student dashboard:", error);
+        toast.error("Failed to load some dashboard data");
+      } finally {
+        setLoading(false);
+      }
     })();
   }, [user]);
 
-  const myCourseIds = enrollments.filter((e: any) => e.status !== "pending").map((e: any) => e.courseId);
+  const myCourseIds = enrollments.map((e: any) => e.courseId);
   const myCourses = courses.filter((c: any) => myCourseIds.includes(c.id));
   const upcomingClasses = schedules
     .filter(
       (s: any) =>
-        myCourseIds.includes(s.courseId) &&
-        isScheduleForStudent(s, user?.id || "") &&
         !s.ended &&
         new Date(s.datetime) > new Date()
     )

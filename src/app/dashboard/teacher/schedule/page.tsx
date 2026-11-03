@@ -51,6 +51,13 @@ export default function SchedulePage() {
   const [materialForm, setMaterialForm] = useState({ name: "", url: "" });
   const [savingMaterials, setSavingMaterials] = useState(false);
 
+  // Audience editor for existing classes
+  const [audienceOpen, setAudienceOpen] = useState(false);
+  const [audienceSchedule, setAudienceSchedule] = useState<any>(null);
+  const [audienceStudents, setAudienceStudents] = useState<any[]>([]);
+  const [audienceIds, setAudienceIds] = useState<string[]>([]);
+  const [savingAudience, setSavingAudience] = useState(false);
+
   useEffect(() => {
     if (!user) return;
     loadData();
@@ -148,6 +155,69 @@ export default function SchedulePage() {
     setRecordingUrl(schedule.recordingUrl || "");
     setMaterialForm({ name: "", url: "" });
     setMaterialsOpen(true);
+  };
+
+  const openAudience = async (schedule: any) => {
+    setAudienceSchedule(schedule);
+    setAudienceStudents([]);
+    setAudienceIds([]);
+    setAudienceOpen(true);
+
+    try {
+      const [enrollments, users] = await Promise.all([
+        getEnrollmentsByCourse(schedule.courseId),
+        allUsers.length ? Promise.resolve(allUsers) : getAllUsers(),
+      ]);
+      const approvedIds = new Set(
+        (enrollments as any[])
+          .filter((e: any) => e.status === "approved")
+          .map((e: any) => e.userId)
+      );
+      const students = (users as any[]).filter((u: any) => approvedIds.has(u.id));
+      const currentIds = Array.isArray(schedule.studentIds) ? schedule.studentIds : [];
+      setAudienceStudents(students);
+      setAudienceIds(currentIds.length > 0 ? currentIds : students.map((s: any) => s.id));
+    } catch {
+      toast.error("Failed to load students for this course");
+    }
+  };
+
+  const toggleAudienceStudent = (studentId: string) => {
+    setAudienceIds((prev) =>
+      prev.includes(studentId)
+        ? prev.filter((id) => id !== studentId)
+        : [...prev, studentId]
+    );
+  };
+
+  const saveAudience = async () => {
+    if (!audienceSchedule) return;
+    const selected = audienceStudents.filter((student) => audienceIds.includes(student.id));
+    if (selected.length === 0) {
+      toast.error("Select at least one student");
+      return;
+    }
+
+    setSavingAudience(true);
+    try {
+      const payload = {
+        studentIds: selected.map((student) => student.id),
+        studentNames: selected.map((student) => student.name),
+      };
+      await updateSchedule(audienceSchedule.id, payload);
+      setSchedules((prev) =>
+        prev.map((schedule) =>
+          schedule.id === audienceSchedule.id ? { ...schedule, ...payload } : schedule
+        )
+      );
+      toast.success("Class audience updated");
+      setAudienceOpen(false);
+      setAudienceSchedule(null);
+    } catch {
+      toast.error("Failed to update class audience");
+    } finally {
+      setSavingAudience(false);
+    }
   };
 
   const addMaterial = () => {
@@ -375,6 +445,67 @@ export default function SchedulePage() {
         </DialogContent>
       </Dialog>
 
+      {/* Audience editor dialog */}
+      <Dialog open={audienceOpen} onOpenChange={setAudienceOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Class Audience</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+              {audienceSchedule?.courseName} · {audienceSchedule?.datetime ? format(new Date(audienceSchedule.datetime), "MMM d, yyyy · h:mm a") : "TBD"}
+            </p>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label>Visible To</Label>
+                {audienceStudents.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setAudienceIds(
+                      audienceIds.length === audienceStudents.length ? [] : audienceStudents.map((s) => s.id)
+                    )}
+                    className="text-xs font-semibold text-orange-500 hover:underline"
+                  >
+                    {audienceIds.length === audienceStudents.length ? "Clear all" : "Select all"}
+                  </button>
+                )}
+              </div>
+              {audienceStudents.length === 0 ? (
+                <p className="text-xs rounded-xl border border-dashed p-3" style={{ color: "var(--text-secondary)", borderColor: "var(--border)" }}>
+                  No approved students in this course.
+                </p>
+              ) : (
+                <div className="max-h-52 overflow-y-auto rounded-xl border p-2 space-y-1" style={{ borderColor: "var(--border)" }}>
+                  {audienceStudents.map((student) => (
+                    <label key={student.id} className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-50 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={audienceIds.includes(student.id)}
+                        onChange={() => toggleAudienceStudent(student.id)}
+                        className="w-4 h-4 accent-orange-500"
+                      />
+                      <span className="text-sm font-medium">{student.name}</span>
+                      <span className="text-xs ml-auto" style={{ color: "var(--text-secondary)" }}>{student.email}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+              <p className="text-[11px]" style={{ color: "var(--text-secondary)" }}>
+                Only the selected students will see this class and its materials.
+              </p>
+            </div>
+
+            <div className="flex gap-2">
+              <Button variant="ghost" className="flex-1" onClick={() => setAudienceOpen(false)}>Cancel</Button>
+              <Button className="flex-1 gap-2" onClick={saveAudience} disabled={savingAudience || audienceStudents.length === 0}>
+                <Users className="w-4 h-4" /> {savingAudience ? "Saving…" : "Save Audience"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {loading ? (
         <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="skeleton h-24 rounded-2xl" />)}</div>
       ) : schedules.length === 0 ? (
@@ -402,6 +533,7 @@ export default function SchedulePage() {
                     targetNames={studentNamesFor(s)}
                     onDelete={handleDelete}
                     onManageMaterials={openMaterials}
+                    onEditAudience={openAudience}
                   />
                 ))}
               </div>
@@ -421,6 +553,7 @@ export default function SchedulePage() {
                     targetNames={studentNamesFor(s)}
                     onDelete={handleDelete}
                     onManageMaterials={openMaterials}
+                    onEditAudience={openAudience}
                   />
                 ))}
               </div>
@@ -437,11 +570,13 @@ function ScheduleCard({
   targetNames,
   onDelete,
   onManageMaterials,
+  onEditAudience,
 }: {
   schedule: any;
   targetNames: string;
   onDelete: (id: string) => void;
   onManageMaterials: (schedule: any) => void;
+  onEditAudience: (schedule: any) => void;
 }) {
   const ended = schedule.ended === true;
   const started = schedule.datetime ? isPast(new Date(schedule.datetime)) : false;
@@ -480,6 +615,9 @@ function ScheduleCard({
             <Badge variant={ended ? "secondary" : started ? "danger" : "success"}>
               {ended ? "Finished" : started ? "Live now" : "Upcoming"}
             </Badge>
+            <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => onEditAudience(schedule)}>
+              <Users className="w-3.5 h-3.5" /> Audience
+            </Button>
             <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => onManageMaterials(schedule)}>
               <FileText className="w-3.5 h-3.5" /> Materials
             </Button>

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { getCertificate } from "@/lib/firestore";
+import { useStaticRouteParam } from "@/lib/useStaticRouteParam";
 import { Button } from "@/components/ui/button";
 import { Download, Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
@@ -24,6 +25,7 @@ async function downloadCertificate(el: HTMLElement, fileName: string) {
 }
 
 export default function CertificateViewPage({ params }: { params: Promise<{ certId: string }> }) {
+  const certId = useStaticRouteParam(params, "certId");
   const [cert, setCert] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
@@ -31,11 +33,13 @@ export default function CertificateViewPage({ params }: { params: Promise<{ cert
   const certRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    params.then(async (p) => {
-      const data = await getCertificate(p.certId);
-      setCert(data);
-      setLoading(false);
+    if (!certId) return;
+    (async () => {
       try {
+        const data = await getCertificate(certId);
+        setCert(data);
+        if (!data?.certNumber) return;
+
         const QRCode = (await import("qrcode")).default;
         const verificationUrl = `https://jrcodecrafterz.com/certificates/verify?num=${data.certNumber}`;
         const url = await QRCode.toDataURL(verificationUrl, {
@@ -44,11 +48,13 @@ export default function CertificateViewPage({ params }: { params: Promise<{ cert
           color: { dark: "#ffffff", light: "#0b0f1a" },
         });
         setQrDataUrl(url);
-      } catch (e) {
-        console.error("QR gen error", e);
+      } catch (error) {
+        console.error("Certificate load error", error);
+      } finally {
+        setLoading(false);
       }
-    });
-  }, [params]);
+    })();
+  }, [certId]);
 
   const handleDownload = async () => {
     if (cert && cert.certificateUrl) {

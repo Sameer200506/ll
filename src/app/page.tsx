@@ -7,9 +7,10 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { CourseThumbnail } from "@/components/courses/CourseThumbnail";
 import { getAllCourses, createLead, getSiteSettings } from "@/lib/firestore";
 import { 
-  BookOpen, Video, Calendar, Trophy, Zap, ArrowRight, Users, Star, PlayCircle, 
+  BookOpen, Video, Calendar, Trophy, Zap, ArrowRight, Users, Star,
   Code, ShieldCheck, Mail, Phone, Globe, ChevronLeft, ChevronRight, MessageSquare, 
   Award, Flame, Sparkles, Check, CheckCircle2, ChevronDown, Monitor, Laptop, GraduationCap,
   Download, Eye, ShieldAlert, Menu, X
@@ -795,11 +796,12 @@ export default function LandingPage() {
                   <Card className="flex flex-col overflow-hidden bg-white border border-slate-100 rounded-3xl shadow-sm card-hover h-full">
                     <Link href={`/courses/${course.id}`}>
                       <div className="h-48 rounded-t-2xl overflow-hidden flex items-center justify-center relative bg-orange-50 border-b border-orange-100 cursor-pointer">
-                        {course.thumbnailUrl ? (
-                          <img src={course.thumbnailUrl} alt={course.title} className="w-full h-full object-cover transition-transform duration-300 hover:scale-105" />
-                        ) : (
-                          <PlayCircle className="w-16 h-16 opacity-30 text-orange-500" />
-                        )}
+                        <CourseThumbnail
+                          src={course.thumbnailUrl}
+                          alt={course.title}
+                          className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                          iconClassName="w-16 h-16 text-orange-400/40"
+                        />
                         <div className="absolute top-4 right-4">
                           <Badge className="bg-orange-500 hover:bg-orange-600 text-white font-bold px-3 py-1 text-xs shadow-md">
                             {course.price === 0 ? "Free Demo" : `₹${course.price}`}

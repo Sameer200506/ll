@@ -4,8 +4,9 @@ import { useAuth } from "@/context/AuthContext";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { CourseThumbnail } from "@/components/courses/CourseThumbnail";
 import { getCoursesByTeacher, getEnrollmentsByCourse } from "@/lib/firestore";
-import { BookOpen, Users, PlayCircle } from "lucide-react";
+import { BookOpen, Users } from "lucide-react";
 
 export default function TeacherCoursesPage() {
   const { user } = useAuth();
@@ -53,11 +54,12 @@ export default function TeacherCoursesPage() {
                   className="h-40 rounded-t-2xl overflow-hidden flex items-center justify-center relative"
                   style={{ background: "linear-gradient(135deg, var(--surface-2), var(--accent)22)" }}
                 >
-                  {course.thumbnailUrl ? (
-                    <img src={course.thumbnailUrl} alt={course.title} className="w-full h-full object-cover" />
-                  ) : (
-                    <PlayCircle className="w-12 h-12 opacity-30" style={{ color: "var(--accent)" }} />
-                  )}
+                  <CourseThumbnail
+                    src={course.thumbnailUrl}
+                    alt={course.title}
+                    className="w-full h-full object-cover"
+                    iconClassName="w-12 h-12 text-orange-400/40"
+                  />
                   <span className="absolute bottom-3 left-3 text-[10px] font-bold px-2 py-1 rounded-md bg-black/60 text-white backdrop-blur-sm">
                     {course.category || "Classes 1–12"}
                   </span>

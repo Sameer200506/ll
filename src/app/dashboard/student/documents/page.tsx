@@ -12,8 +12,9 @@ import {
   getSchedulesByCourse,
   isScheduleForStudent,
 } from "@/lib/firestore";
+import { getYouTubeId, resolveDocumentUrl, resolveExternalUrl } from "@/lib/media";
 import { FileText, ExternalLink, FolderOpen, Link2, Video, BookOpen } from "lucide-react";
-import { format } from "date-fns";
+import { format, isValid } from "date-fns";
 
 interface DocumentItem {
   id: string;
@@ -59,35 +60,83 @@ export default function StudentDocumentsPage() {
             ]);
 
             const items: DocumentItem[] = [];
+            const seenUrls = new Set<string>();
+            const addItem = (item: DocumentItem) => {
+              if (!item.url || seenUrls.has(item.url)) return;
+              seenUrls.add(item.url);
+              items.push(item);
+            };
 
-            if (course.curriculumPdfUrl) {
-              items.push({
+            const curriculumUrl = resolveDocumentUrl(course.curriculumPdfUrl);
+            if (curriculumUrl) {
+              addItem({
                 id: `${course.id}-curriculum`,
-                name: "Course Curriculum PDF",
-                url: course.curriculumPdfUrl,
-                type: "PDF",
+                name: "Course Curriculum",
+                url: curriculumUrl,
+                type: "Curriculum",
                 source: "curriculum",
               });
             }
 
             (lessons as any[]).forEach((lesson: any) => {
-              if (lesson.pdfUrl) {
-                items.push({
-                  id: `lesson-${lesson.id}`,
-                  name: lesson.title || "Lesson PDF",
-                  url: lesson.pdfUrl,
+              const lessonTitle = lesson.title || "Lesson";
+
+              const pdfUrl = resolveDocumentUrl(lesson.pdfUrl);
+              if (pdfUrl) {
+                addItem({
+                  id: `lesson-pdf-${lesson.id}`,
+                  name: `${lessonTitle} — Lesson PDF`,
+                  url: pdfUrl,
                   type: "Lesson PDF",
+                  source: "lesson",
+                });
+              }
+
+              const lessonLink = String(lesson.youtubeUrl || "").trim();
+              if (!lessonLink) return;
+
+              if (getYouTubeId(lessonLink)) {
+                addItem({
+                  id: `lesson-video-${lesson.id}`,
+                  name: `${lessonTitle} — Video`,
+                  url: lessonLink,
+                  type: "Lesson Video",
+                  source: "lesson",
+                });
+                return;
+              }
+
+              const documentUrl = resolveDocumentUrl(lessonLink);
+              if (documentUrl) {
+                addItem({
+                  id: `lesson-doc-${lesson.id}`,
+                  name: `${lessonTitle} — Lesson Document`,
+                  url: documentUrl,
+                  type: "Lesson Document",
+                  source: "lesson",
+                });
+                return;
+              }
+
+              const externalUrl = resolveExternalUrl(lessonLink);
+              if (externalUrl) {
+                addItem({
+                  id: `lesson-link-${lesson.id}`,
+                  name: `${lessonTitle} — Resource`,
+                  url: externalUrl,
+                  type: "Lesson Link",
                   source: "lesson",
                 });
               }
             });
 
             (resources as any[]).forEach((resource: any) => {
-              if (resource.url) {
-                items.push({
+              const resourceUrl = resolveExternalUrl(resource.url);
+              if (resourceUrl) {
+                addItem({
                   id: `resource-${resource.id}`,
                   name: resource.name || "Learning Resource",
-                  url: resource.url,
+                  url: resourceUrl,
                   type: resource.type || "Resource",
                   source: "resource",
                 });
@@ -99,23 +148,28 @@ export default function StudentDocumentsPage() {
               .forEach((schedule: any) => {
                 const className = schedule.courseName || course.title || "Live Class";
                 const dateLabel = schedule.datetime || "";
-                if (schedule.recordingUrl) {
-                  items.push({
+
+                const recordingUrl = resolveExternalUrl(schedule.recordingUrl);
+                if (recordingUrl) {
+                  addItem({
                     id: `recording-${schedule.id}`,
                     name: `${className} — Recording`,
-                    url: schedule.recordingUrl,
+                    url: recordingUrl,
                     type: "Recording",
                     source: "class",
                     date: dateLabel,
                   });
                 }
+
                 if (Array.isArray(schedule.materials)) {
                   schedule.materials.forEach((material: any, idx: number) => {
-                    if (material?.url) {
-                      items.push({
+                    const materialUrl =
+                      resolveDocumentUrl(material?.url) || resolveExternalUrl(material?.url);
+                    if (materialUrl) {
+                      addItem({
                         id: `material-${schedule.id}-${idx}`,
                         name: material.name || "Class Document",
-                        url: material.url,
+                        url: materialUrl,
                         type: material.type || "Document",
                         source: "class",
                         date: dateLabel,
@@ -124,6 +178,17 @@ export default function StudentDocumentsPage() {
                   });
                 }
               });
+
+            const courseReplayUrl = resolveExternalUrl(course.replayUrl);
+            if (courseReplayUrl) {
+              addItem({
+                id: `${course.id}-replay`,
+                name: "Course Replay",
+                url: courseReplayUrl,
+                type: "Recording",
+                source: "class",
+              });
+            }
 
             if (items.length === 0) return null;
 
@@ -212,7 +277,7 @@ export default function StudentDocumentsPage() {
                       className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
                       style={{ background: `${sourceColor(item.source)}18` }}
                     >
-                      {item.type?.toLowerCase().includes("recording") ? (
+                      {item.type?.toLowerCase().includes("recording") || item.type?.toLowerCase().includes("video") ? (
                         <Video className="w-5 h-5" style={{ color: sourceColor(item.source) }} />
                       ) : item.source === "resource" ? (
                         <Link2 className="w-5 h-5" style={{ color: sourceColor(item.source) }} />
@@ -227,7 +292,7 @@ export default function StudentDocumentsPage() {
                           {sourceLabel(item.source)}
                         </span>
                         <span className="text-[10px]" style={{ color: "var(--text-secondary)" }}>{item.type}</span>
-                        {item.date && (
+                        {item.date && isValid(new Date(item.date)) && (
                           <span className="text-[10px]" style={{ color: "var(--text-secondary)" }}>
                             · {format(new Date(item.date), "MMM d, yyyy")}
                           </span>

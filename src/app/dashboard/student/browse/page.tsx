@@ -6,8 +6,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { CourseThumbnail } from "@/components/courses/CourseThumbnail";
 import { getAllCourses, enrollUser, getEnrollmentsByUser } from "@/lib/firestore";
-import { ShoppingBag, PlayCircle, Star, Check, X, CreditCard, Clock } from "lucide-react";
+import { ShoppingBag, Star, Check, X, CreditCard, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -116,11 +117,12 @@ export default function BrowsePage() {
               <Card key={course.id} className="card-hover flex flex-col">
                 <div className="h-44 rounded-t-2xl overflow-hidden flex items-center justify-center relative"
                   style={{ background: "linear-gradient(135deg, #1a1e2a, #6c63ff22)" }}>
-                  {course.thumbnailUrl ? (
-                    <img src={course.thumbnailUrl} alt={course.title} className="w-full h-full object-cover" />
-                  ) : (
-                    <PlayCircle className="w-14 h-14 opacity-30" style={{ color: "var(--accent)" }} />
-                  )}
+                  <CourseThumbnail
+                    src={course.thumbnailUrl}
+                    alt={course.title}
+                    className="w-full h-full object-cover"
+                    iconClassName="w-14 h-14 text-orange-400/40"
+                  />
                   <div className="absolute top-3 right-3">
                     <Badge variant={course.price === 0 ? "success" : "default"}>
                       {course.price === 0 ? "Free" : `₹${course.price}`}

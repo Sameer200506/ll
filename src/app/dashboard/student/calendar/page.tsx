@@ -5,7 +5,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { getAllSchedules, getApprovedEnrollmentsByUser, isScheduleForStudent } from "@/lib/firestore";
+import { getSchedulesForStudent } from "@/lib/firestore";
 import { Calendar, Video, Clock, ExternalLink, FileText } from "lucide-react";
 import { format, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isToday, isPast } from "date-fns";
 
@@ -19,18 +19,14 @@ export default function StudentCalendarPage() {
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const [allSchedules, enrollments] = await Promise.all([
-        getAllSchedules(),
-        getApprovedEnrollmentsByUser(user.id),
-      ]);
-      const myCourseIds = new Set(enrollments.map((e: any) => e.courseId));
-      const mySchedules = (allSchedules as any[]).filter(
-        (schedule) =>
-          myCourseIds.has(schedule.courseId) &&
-          isScheduleForStudent(schedule, user.id)
-      );
-      setSchedules(mySchedules);
-      setLoading(false);
+      try {
+        const mySchedules = await getSchedulesForStudent(user.id);
+        setSchedules(mySchedules);
+      } catch (error) {
+        console.error("Failed to load calendar:", error);
+      } finally {
+        setLoading(false);
+      }
     })();
   }, [user]);
 

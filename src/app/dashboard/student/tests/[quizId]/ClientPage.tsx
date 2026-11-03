@@ -6,13 +6,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getAllQuizzes, getCourse, saveQuizResult } from "@/lib/firestore";
-import { CheckCircle2, XCircle, ArrowRight, Trophy, RotateCcw } from "lucide-react";
+import { useStaticRouteParam } from "@/lib/useStaticRouteParam";
+import { CheckCircle2, XCircle, ArrowRight, Trophy } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 
 export default function QuizPlayerPage({ params }: { params: Promise<{ quizId: string }> }) {
   const { user } = useAuth();
-  const [quizId, setQuizId] = useState("");
+  const quizId = useStaticRouteParam(params, "quizId");
   const [quiz, setQuiz] = useState<any>(null);
   const [course, setCourse] = useState<any>(null);
   const [answers, setAnswers] = useState<Record<number, number>>({});
@@ -20,19 +21,23 @@ export default function QuizPlayerPage({ params }: { params: Promise<{ quizId: s
   const [score, setScore] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { params.then((p) => setQuizId(p.quizId)); }, [params]);
-
   useEffect(() => {
     if (!quizId) return;
     (async () => {
-      const all = await getAllQuizzes() as any[];
-      const found = all.find((q: any) => q.id === quizId);
-      setQuiz(found);
-      if (found) {
-        const c = await getCourse(found.courseId);
-        setCourse(c);
+      try {
+        const all = await getAllQuizzes() as any[];
+        const found = all.find((q: any) => q.id === quizId);
+        setQuiz(found);
+        if (found) {
+          const c = await getCourse(found.courseId);
+          setCourse(c);
+        }
+      } catch (error) {
+        console.error("Failed to load quiz:", error);
+        toast.error("Failed to load quiz");
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     })();
   }, [quizId]);
 

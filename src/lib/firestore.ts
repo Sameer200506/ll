@@ -165,24 +165,43 @@ export async function getEnrollmentsByCourse(courseId: string) {
 }
 
 export async function isEnrolled(userId: string, courseId: string) {
-  const snap = await getDoc(doc(db, "enrollments", `${userId}_${courseId}`));
-  if (!snap.exists()) return false;
-  const data = snap.data();
-  if (data && data.status === "pending") return false;
-  return true;
-}
-
-export async function approveEnrollment(userId: string, courseId: string) {
-  const id = `${userId}_${courseId}`;
-  await updateDoc(doc(db, "enrollments", id), {
-    status: "approved",
-    approvedAt: new Date().toISOString(),
+  // Production enrollment documents use generated IDs (not `${userId}_${courseId}`),
+  // so resolve the enrollment by its fields instead of assuming a document ID.
+  const snap = await getDocs(
+    query(collection(db, "enrollments"), where("userId", "==", userId))
+  );
+  return snap.docs.some((enrollment) => {
+    const data = enrollment.data();
+    return data.courseId === courseId && data.status === "approved";
   });
 }
 
+async function getEnrollmentRefs(userId: string, courseId: string) {
+  const snap = await getDocs(
+    query(collection(db, "enrollments"), where("userId", "==", userId))
+  );
+  return snap.docs
+    .filter((enrollment) => enrollment.data().courseId === courseId)
+    .map((enrollment) => enrollment.ref);
+}
+
+export async function approveEnrollment(userId: string, courseId: string) {
+  const refs = await getEnrollmentRefs(userId, courseId);
+  if (refs.length === 0) throw new Error("Enrollment not found");
+  await Promise.all(
+    refs.map((ref) =>
+      updateDoc(ref, {
+        status: "approved",
+        approvedAt: new Date().toISOString(),
+      })
+    )
+  );
+}
+
 export async function declineEnrollment(userId: string, courseId: string) {
-  const id = `${userId}_${courseId}`;
-  await deleteDoc(doc(db, "enrollments", id));
+  const refs = await getEnrollmentRefs(userId, courseId);
+  if (refs.length === 0) throw new Error("Enrollment not found");
+  await Promise.all(refs.map((ref) => deleteDoc(ref)));
 }
 
 // ─── PROGRESS ─────────────────────────────────────────────────────────────────
@@ -203,9 +222,13 @@ export async function markLessonComplete(
 }
 
 export async function getProgress(userId: string, courseId: string) {
-  const snap = await getDoc(doc(db, "progress", `${userId}_${courseId}`));
-  if (!snap.exists()) return [];
-  return (snap.data().completedLessons as string[]) || [];
+  // Querying avoids a permission error when the student has no progress
+  // document yet (security rules cannot evaluate `resource.data` on a missing doc).
+  const snap = await getDocs(
+    query(collection(db, "progress"), where("userId", "==", userId))
+  );
+  const match = snap.docs.find((entry) => entry.data().courseId === courseId);
+  return (match?.data().completedLessons as string[]) || [];
 }
 
 // ─── SCHEDULES (LIVE CLASSES) ──────────────────────────────────────────────────
@@ -256,6 +279,32 @@ export function isScheduleForStudent(schedule: any, studentId: string) {
     return schedule.studentIds.includes(studentId);
   }
   return true;
+}
+
+/**
+ * Returns only the classes a student can see. The schedule query is scoped to
+ * the student's approved courses so a student can never receive another
+ * course's classes, even if their enrollment data changes later.
+ */
+export async function getSchedulesForStudent(studentId: string) {
+  const enrollments = await getApprovedEnrollmentsByUser(studentId);
+  const courseIds = Array.from(
+    new Set(
+      (enrollments as any[])
+        .map((enrollment) => enrollment.courseId)
+        .filter((courseId): courseId is string => Boolean(courseId))
+    )
+  );
+
+  if (courseIds.length === 0) return [];
+
+  const schedulesByCourse = await Promise.all(
+    courseIds.map((courseId) => getSchedulesByCourse(courseId))
+  );
+
+  return schedulesByCourse
+    .flat()
+    .filter((schedule) => isScheduleForStudent(schedule, studentId));
 }
 
 export async function deleteSchedule(scheduleId: string) {
@@ -328,9 +377,11 @@ export async function getProjectsByCourse(courseId: string) {
 }
 
 export async function getProjectsByStudent(studentId: string, courseId: string) {
-  const q = query(collection(db, "projects"), where("studentId", "==", studentId), where("courseId", "==", courseId));
+  const q = query(collection(db, "projects"), where("studentId", "==", studentId));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  return snap.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .filter((project: any) => project.courseId === courseId);
 }
 
 export async function getAllProjectsByStudent(studentId: string) {

@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { CourseThumbnail } from "@/components/courses/CourseThumbnail";
 import { getAllCourses } from "@/lib/firestore";
-import { ArrowRight, PlayCircle, Star, Search } from "lucide-react";
+import { ArrowRight, Star, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 const CATEGORIES = ["All", "Classes 1–12", "Computer Basics", "MS Office", "AI Tools", "Math Basics", "Projects"];
@@ -113,11 +114,12 @@ export default function CoursesCatalogPage() {
                 <Link href={`/courses/${course.id}`}>
                   <div className="h-44 rounded-t-2xl overflow-hidden flex items-center justify-center relative flex-shrink-0 cursor-pointer"
                     style={{ background: "linear-gradient(135deg, var(--surface-2), rgba(249,115,22,0.15))" }}>
-                    {course.thumbnailUrl ? (
-                      <img src={course.thumbnailUrl} alt={course.title} className="w-full h-full object-cover transition-transform duration-300 hover:scale-105" />
-                    ) : (
-                      <PlayCircle className="w-14 h-14 opacity-30" style={{ color: "var(--accent)" }} />
-                    )}
+                    <CourseThumbnail
+                      src={course.thumbnailUrl}
+                      alt={course.title}
+                      className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                      iconClassName="w-14 h-14 text-orange-400/40"
+                    />
                     <div className="absolute top-3 right-3">
                       <Badge variant={course.price === 0 ? "success" : "default"}>
                         {course.price === 0 ? "Free" : `₹${course.price}`}
