@@ -56,6 +56,9 @@ export default function LiveClassesPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingClass, setEditingClass] = useState<LiveClass | null>(null);
   const [whatsappNumber, setWhatsappNumber] = useState("+919347008039");
+  // Re-render once a minute so a session automatically leaves "Live Now"
+  // when its two-hour window passes, without needing a page refresh.
+  const [now, setNow] = useState(() => new Date());
 
   // Form state
   const [formCourseId, setFormCourseId] = useState("");
@@ -101,6 +104,11 @@ export default function LiveClassesPage() {
     if (user) fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Load the approved students for the selected course so the teacher can
   // choose exactly who the class is for.
@@ -262,18 +270,32 @@ export default function LiveClassesPage() {
     }
   };
 
-  // A class is "live/upcoming" until teacher explicitly ends it (regardless of time)
-  // A class is "past" only when ended === true
-  const now = new Date();
+  // A session stays "live" for two hours after its start time. After that
+  // window it belongs to Past Sessions even if the teacher never clicked
+  // "End class", so yesterday's class can no longer show a stale Live badge.
+  const CLASS_LIVE_WINDOW_MS = 2 * 60 * 60 * 1000;
+  const classStart = (cls: LiveClass) => new Date(cls.datetime).getTime();
+  const isExpired = (cls: LiveClass) => {
+    const start = classStart(cls);
+    return !cls.ended && Number.isFinite(start) && now.getTime() >= start + CLASS_LIVE_WINDOW_MS;
+  };
   const upcoming = classes
-    .filter((c) => !c.ended)
+    .filter((c) => !c.ended && !isExpired(c))
     .sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime());
   const past = classes
-    .filter((c) => c.ended === true)
+    .filter((c) => c.ended === true || isExpired(c))
     .sort((a, b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime());
 
-  // For display: a class whose datetime has passed but not yet ended shows as "Live Now"
-  const isLiveNow = (cls: LiveClass) => cls.datetime && new Date(cls.datetime) <= now && !cls.ended;
+  // For display: only a session inside its live window shows as "Live Now".
+  const isLiveNow = (cls: LiveClass) => {
+    const start = classStart(cls);
+    return (
+      !cls.ended &&
+      Number.isFinite(start) &&
+      start <= now.getTime() &&
+      now.getTime() < start + CLASS_LIVE_WINDOW_MS
+    );
+  };
 
   const targetNamesFor = (cls: any) => {
     if (Array.isArray(cls.studentNames) && cls.studentNames.length > 0) {
@@ -600,8 +622,8 @@ export default function LiveClassesPage() {
                       <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 flex-shrink-0">
                         <Video className="w-5 h-5" />
                       </div>
-                      <Badge className="bg-slate-100 text-slate-500 border border-slate-200/50 hover:bg-slate-100 text-[9px] font-bold uppercase">
-                        Completed
+                      <Badge className={`text-[9px] font-bold uppercase ${cls.ended ? "bg-slate-100 text-slate-500 border border-slate-200/50 hover:bg-slate-100" : "bg-amber-100 text-amber-700 border border-amber-200/50 hover:bg-amber-100"}`}>
+                        {cls.ended ? "Completed" : "Not ended"}
                       </Badge>
                     </div>
                     <p className="font-bold text-slate-700 text-sm mb-1 line-clamp-2">{cls.courseName}</p>
@@ -644,6 +666,15 @@ export default function LiveClassesPage() {
                     )}
                     {isTeacherOrAdmin && (
                       <div className="flex gap-2 mt-3">
+                        {!cls.ended && (
+                          <button
+                            onClick={() => handleEndClass(cls)}
+                            className="w-8 h-8 rounded-lg bg-red-50 border border-red-200 flex items-center justify-center text-red-500 hover:bg-red-100 transition-colors"
+                            title="End class and record earnings"
+                          >
+                            <StopCircle className="w-3 h-3" />
+                          </button>
+                        )}
                         <button
                           onClick={() => handleOpenEdit(cls)}
                           className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500 hover:text-orange-500 hover:border-orange-300 transition-colors"

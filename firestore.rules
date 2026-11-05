@@ -104,10 +104,11 @@ service cloud.firestore {
 
     // ─── PROGRESS COLLECTION ───────────────────────────────────────────────────────
     match /progress/{progressId} {
-      // Users can read/write their own progress records, admins can manage all
+      // Users can read/write their own progress records, teachers and admins
+      // can review the progress of students in their classes.
       allow read: if isAuth() && (
         resource.data.userId == request.auth.uid || 
-        isAdmin()
+        isStaff()
       );
       allow create, update: if isAuth() && (
         request.resource.data.userId == request.auth.uid || 

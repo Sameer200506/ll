@@ -6,9 +6,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getCoursesByTeacher, getEnrollmentsByCourse, getAllUsers, getQuizResultsByUser, getProgress, getLessonsByCourse } from "@/lib/firestore";
+import { getCoursesByTeacher, getEnrollmentsByCourse, getAllUsers, getAllQuizResults, getAllProgress, getLessonsByCourse } from "@/lib/firestore";
 import { Users, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 
 interface StudentData {
   uid: string;
@@ -20,60 +21,117 @@ interface StudentData {
 }
 
 export default function StudentsPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [students, setStudents] = useState<StudentData[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) return;
+    if (authLoading) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
     (async () => {
-      const myCourses = await getCoursesByTeacher(user.id);
-      const allUsers = await getAllUsers();
-      const userMap: Record<string, any> = {};
-      allUsers.forEach((u: any) => { userMap[u.id] = u; });
+      setLoading(true);
+      try {
+        // Load everything in a few batched reads instead of one query per
+        // student per course. Teachers can read progress for their students
+        // once the Firestore rules allow staff reads.
+        const [myCourses, allUsers, allProgress, allQuizResults] = await Promise.all([
+          getCoursesByTeacher(user.id),
+          getAllUsers(),
+          getAllProgress(),
+          getAllQuizResults(),
+        ]);
 
-      // Get all enrollments per course
-      const studentMap: Record<string, { courseIds: string[]; courseNames: string[] }> = {};
-      await Promise.all(myCourses.map(async (c: any) => {
-        const enr = await getEnrollmentsByCourse(c.id);
-        enr.forEach((e: any) => {
-          if (!studentMap[e.userId]) studentMap[e.userId] = { courseIds: [], courseNames: [] };
-          studentMap[e.userId].courseIds.push(c.id);
-          studentMap[e.userId].courseNames.push(c.title);
+        const userMap: Record<string, any> = {};
+        allUsers.forEach((u: any) => { userMap[u.id] = u; });
+
+        // Get all enrollments per course
+        const studentMap: Record<string, { courseIds: string[]; courseNames: string[] }> = {};
+        await Promise.all(myCourses.map(async (c: any) => {
+          const enr = await getEnrollmentsByCourse(c.id);
+          enr.forEach((e: any) => {
+            if (!studentMap[e.userId]) studentMap[e.userId] = { courseIds: [], courseNames: [] };
+            studentMap[e.userId].courseIds.push(c.id);
+            studentMap[e.userId].courseNames.push(c.title);
+          });
+        }));
+
+        // Lessons per course, used to turn completed lesson counts into a %.
+        const lessonsByCourse: Record<string, Set<string>> = {};
+        await Promise.all(myCourses.map(async (c: any) => {
+          const lessons = await getLessonsByCourse(c.id);
+          lessonsByCourse[c.id] = new Set(lessons.map((l: any) => l.id));
+        }));
+
+        const progressMap: Record<string, string[]> = {};
+        allProgress.forEach((p: any) => {
+          if (p.userId && p.courseId) {
+            progressMap[`${p.userId}|${p.courseId}`] = Array.isArray(p.completedLessons)
+              ? p.completedLessons
+              : [];
+          }
         });
-      }));
 
-      // Build student data
-      const data = await Promise.all(
-        Object.entries(studentMap).map(async ([uid, { courseIds, courseNames }]) => {
+        const quizResultsByUser: Record<string, any[]> = {};
+        allQuizResults.forEach((r: any) => {
+          if (!r.userId) return;
+          (quizResultsByUser[r.userId] ||= []).push(r);
+        });
+
+        // Build student data
+        const data = Object.entries(studentMap).map(([uid, { courseIds, courseNames }]) => {
           const u = userMap[uid];
           if (!u) return null;
 
-          // Progress: avg across enrolled courses
-          let totalLessons = 0, totalDone = 0;
-          await Promise.all(courseIds.map(async (cId) => {
-            const [lessons, done] = await Promise.all([getLessonsByCourse(cId), getProgress(uid, cId)]);
-            totalLessons += lessons.length;
-            totalDone += done.length;
-          }));
+          let totalLessons = 0;
+          let totalDone = 0;
+          courseIds.forEach((cId) => {
+            const lessonIds = lessonsByCourse[cId] || new Set<string>();
+            const completed = progressMap[`${uid}|${cId}`] || [];
+            totalLessons += lessonIds.size;
+            totalDone += completed.filter((id) => lessonIds.has(id)).length;
+          });
           const progress = totalLessons > 0 ? Math.round((totalDone / totalLessons) * 100) : 0;
 
-          // Quiz avg
-          const results = await getQuizResultsByUser(uid);
-          const myCourseResults = results.filter((r: any) => courseIds.includes(r.courseId));
-          const quizAvg = myCourseResults.length > 0
-            ? Math.round(myCourseResults.reduce((a: number, r: any) => a + (r.score / r.total) * 100, 0) / myCourseResults.length)
+          const results = (quizResultsByUser[uid] || []).filter((r: any) =>
+            courseIds.includes(r.courseId)
+          );
+          const scored = results.filter((r: any) => Number(r.total) > 0);
+          const quizAvg = scored.length > 0
+            ? Math.round(scored.reduce((a: number, r: any) => a + (Number(r.score) / Number(r.total)) * 100, 0) / scored.length)
             : null;
 
-          return { uid, name: u.name, email: u.email, courses: courseNames, progress, quizAvg };
-        })
-      );
+          return { uid, name: u.name || "Student", email: u.email || "", courses: courseNames, progress, quizAvg };
+        });
 
-      setStudents(data.filter(Boolean) as StudentData[]);
-      setLoading(false);
+        if (!cancelled) {
+          setStudents(
+            (data.filter(Boolean) as StudentData[]).sort((a, b) =>
+              a.name.localeCompare(b.name)
+            )
+          );
+        }
+      } catch (error) {
+        console.error("Failed to load teacher students", error);
+        if (!cancelled) {
+          setStudents([]);
+          toast.error("Could not load your students. Please refresh and try again.");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
-  }, [user]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, authLoading]);
 
   const filtered = students.filter((s) =>
     s.name.toLowerCase().includes(search.toLowerCase()) ||
