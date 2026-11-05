@@ -62,6 +62,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string): Promise<AppUser> => {
     const cred = await signInWithEmailAndPassword(auth, email, password);
+    // A non-admin sign-in must not leave the admin gate unlocked.
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("admin_authed");
+    }
     const docData = await getUserDoc(cred.user.uid);
     if (!docData) throw new Error("User profile not found");
     const appUser: AppUser = {
@@ -82,6 +86,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     phone?: string
   ): Promise<AppUser> => {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("admin_authed");
+    }
     await createUserDoc(cred.user.uid, { name, email, role, phone });
     const appUser: AppUser = { id: cred.user.uid, name, email, role, phone };
     setUser(appUser);
@@ -90,6 +97,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     await signOut(auth);
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("admin_authed");
+    }
     setUser(null);
   };
 

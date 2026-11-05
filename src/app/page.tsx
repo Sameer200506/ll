@@ -13,7 +13,7 @@ import {
   BookOpen, Video, Calendar, Trophy, Zap, ArrowRight, Users, Star,
   Code, ShieldCheck, Mail, Phone, Globe, ChevronLeft, ChevronRight, MessageSquare, 
   Award, Flame, Sparkles, Check, CheckCircle2, ChevronDown, Monitor, Laptop, GraduationCap,
-  Download, Eye, ShieldAlert, Menu, X
+  Download, Eye, ShieldAlert, Menu, X, LogOut
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -145,13 +145,21 @@ const testimonials = [
 ];
 
 export default function LandingPage() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const router = useRouter();
   const [courses, setCourses] = useState<any[]>([]);
   const [siteSettings, setSiteSettings] = useState<any>(null);
   const [activeTestimonial, setActiveTestimonial] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [showMobilePrompt, setShowMobilePrompt] = useState(false);
+
+  const handleSignOut = async () => {
+    await logout();
+    setMobileMenuOpen(false);
+    toast.success("Signed out");
+    router.push("/login");
+  };
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -481,6 +489,15 @@ export default function LandingPage() {
                   Dashboard <ArrowRight className="w-4 h-4" />
                 </Button>
               </Link>
+              <Button
+                onClick={handleSignOut}
+                variant="outline"
+                size="sm"
+                className="border-slate-200 text-slate-600 hover:text-red-600 hover:border-red-200 hover:bg-red-50 font-semibold gap-1.5 cursor-pointer"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="hidden lg:inline">Sign Out</span>
+              </Button>
             </>
           ) : (
             <>
@@ -1671,21 +1688,30 @@ export default function LandingPage() {
                 )}
 
                 {user ? (
-                  <Link
-                    href={
-                      user.role === "teacher"
-                        ? "/dashboard/teacher"
-                        : user.role === "admin"
-                        ? "/admin"
-                        : "/dashboard/student"
-                    }
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="w-full"
-                  >
-                    <Button className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 rounded-xl gap-2 transition-all flex items-center justify-center">
-                      Go to Dashboard <ArrowRight className="w-4 h-4" />
+                  <div className="flex flex-col gap-2">
+                    <Link
+                      href={
+                        user.role === "teacher"
+                          ? "/dashboard/teacher"
+                          : user.role === "admin"
+                          ? "/admin"
+                          : "/dashboard/student"
+                      }
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="w-full"
+                    >
+                      <Button className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 rounded-xl gap-2 transition-all flex items-center justify-center">
+                        Go to Dashboard <ArrowRight className="w-4 h-4" />
+                      </Button>
+                    </Link>
+                    <Button
+                      onClick={handleSignOut}
+                      variant="outline"
+                      className="w-full py-3.5 rounded-xl font-semibold border-slate-200 text-slate-700 hover:bg-red-50 hover:text-red-600 hover:border-red-200 gap-2"
+                    >
+                      <LogOut className="w-4 h-4" /> Sign Out
                     </Button>
-                  </Link>
+                  </div>
                 ) : (
                   <div className="flex flex-col gap-2">
                     <Link href="/login" onClick={() => setMobileMenuOpen(false)}>

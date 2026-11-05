@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { Eye, EyeOff, ArrowRight } from "lucide-react";
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { user, login, logout } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -21,16 +21,32 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      await login(email, password);
+      const appUser = await login(email, password);
       toast.success("Welcome back!");
-      // Redirect all roles to home page after login
-      setTimeout(() => {
-        router.push("/");
-      }, 500);
+      // Land on the dashboard that matches the account instead of dropping
+      // the user on the marketing homepage (which looked like a failed login).
+      const destination =
+        appUser.role === "teacher"
+          ? "/dashboard/teacher"
+          : appUser.role === "admin"
+          ? "/admin"
+          : "/dashboard/student";
+      router.push(destination);
     } catch (err: any) {
       toast.error(err.message || "Login failed");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSwitchAccount = async () => {
+    try {
+      await logout();
+      setEmail("");
+      setPassword("");
+      toast.success("Signed out. You can use another account now.");
+    } catch {
+      toast.error("Could not sign out. Please refresh and try again.");
     }
   };
 
@@ -57,6 +73,22 @@ export default function LoginPage() {
           <h1 className="text-2xl font-bold">Welcome back</h1>
           <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>Sign in to continue learning</p>
         </div>
+
+        {user && (
+          <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-left text-xs text-amber-800 flex items-center justify-between gap-3">
+            <span>
+              Currently signed in as <strong className="font-bold">{user.email}</strong>{" "}
+              ({user.role}). Signing in below will switch accounts.
+            </span>
+            <button
+              type="button"
+              onClick={handleSwitchAccount}
+              className="shrink-0 font-bold text-amber-900 underline underline-offset-2 hover:text-amber-700"
+            >
+              Sign out
+            </button>
+          </div>
+        )}
 
         {/* Card */}
         <div className="rounded-2xl border p-8" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
