@@ -91,11 +91,21 @@ service cloud.firestore {
         isStaff()
       );
       
-      // Any authenticated user can request/create a new enrollment
-      // But the initial status MUST be "pending" (unless they are admin)
+      // Any authenticated user can request/create a new enrollment.
+      // Paid courses must start as "pending" for admin verification, while
+      // free courses can be joined instantly (approved) because there is no
+      // payment to verify. Admins can assign any student to any course.
       allow create: if isAuth() && (
-        request.resource.data.userId == request.auth.uid && 
-        (request.resource.data.status == 'pending' || isAdmin())
+        isAdmin() || (
+          request.resource.data.userId == request.auth.uid && 
+          (
+            request.resource.data.status == 'pending' ||
+            (
+              request.resource.data.status == 'approved' &&
+              get(/databases/$(database)/documents/courses/$(request.resource.data.courseId)).data.price == 0
+            )
+          )
+        )
       );
       
       // Only admins can update (approve/decline) or delete enrollments
