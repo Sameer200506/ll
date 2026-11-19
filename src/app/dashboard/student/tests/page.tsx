@@ -39,17 +39,37 @@ export default function TestsPage() {
     })();
   }, [user]);
 
-  const getResult = (quizId: string) => results.find((r: any) => r.quizId === quizId);
+  const getResult = (quizId: string) =>
+    results
+      .filter((r: any) => r.quizId === quizId)
+      .sort((a: any, b: any) =>
+        String(b.submittedAt ?? "").localeCompare(String(a.submittedAt ?? ""))
+      )[0];
+
+  // Retakes create new result documents. Summaries should reflect the latest
+  // attempt per quiz, not every attempt ever made.
+  const latestResults = Object.values(
+    results.reduce((acc: Record<string, any>, result: any) => {
+      const previous = acc[result.quizId];
+      if (
+        !previous ||
+        String(result.submittedAt ?? "") > String(previous.submittedAt ?? "")
+      ) {
+        acc[result.quizId] = result;
+      }
+      return acc;
+    }, {})
+  ) as any[];
 
   return (
     <DashboardLayout title="Tests & Quizzes" description="Test your knowledge and track your scores." allowedRoles={["student"]}>
       {/* Results summary */}
-      {results.length > 0 && (
+      {latestResults.length > 0 && (
         <div className="grid grid-cols-3 gap-4 mb-8">
           {[
-            { label: "Quizzes Taken", value: results.length, color: "var(--accent)" },
-            { label: "Avg. Score", value: `${Math.round(results.reduce((a: number, r: any) => a + (r.score / r.total) * 100, 0) / results.length)}%`, color: "var(--success)" },
-            { label: "Best Score", value: `${Math.round(Math.max(...results.map((r: any) => (r.score / r.total) * 100)))}%`, color: "var(--warning)" },
+            { label: "Quizzes Taken", value: latestResults.length, color: "var(--accent)" },
+            { label: "Avg. Score", value: `${Math.round(latestResults.reduce((a: number, r: any) => a + (r.score / r.total) * 100, 0) / latestResults.length)}%`, color: "var(--success)" },
+            { label: "Best Score", value: `${Math.round(Math.max(...latestResults.map((r: any) => (r.score / r.total) * 100)))}%`, color: "var(--warning)" },
           ].map(({ label, value, color }) => (
             <Card key={label}>
               <CardContent className="pt-6 text-center">
@@ -104,14 +124,19 @@ export default function TestsPage() {
                         </div>
                       )}
                     </div>
-                    <div className="flex-shrink-0">
-                      {result ? (
+                    <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                      {result && (
                         <Badge variant={pct! >= 70 ? "success" : "warning"}>{pct}%</Badge>
-                      ) : (
-                        <Link href={`/dashboard/student/tests/${quiz.id}`}>
-                          <Button size="sm" className="gap-1">Take Quiz <ArrowRight className="w-3.5 h-3.5" /></Button>
-                        </Link>
                       )}
+                      <Link href={`/dashboard/student/tests/${quiz.id}`}>
+                        <Button
+                          size="sm"
+                          variant={result ? "outline" : "default"}
+                          className="gap-1"
+                        >
+                          {result ? "Retake" : "Take Quiz"} <ArrowRight className="w-3.5 h-3.5" />
+                        </Button>
+                      </Link>
                     </div>
                   </div>
                 </CardContent>
