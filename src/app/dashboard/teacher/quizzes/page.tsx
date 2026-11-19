@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getCoursesByTeacher, getLessonsByCourse, createQuiz, getAllQuizzes } from "@/lib/firestore";
+import { findUnansweredQuestion } from "@/lib/quiz";
 import { Plus, Trash2, ClipboardList, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -25,7 +26,7 @@ export default function QuizzesPage() {
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ courseId: "", lessonId: "none", title: "" });
   const [questions, setQuestions] = useState<Question[]>([
-    { question: "", options: ["", "", "", ""], correct: 0 }
+    { question: "", options: ["", "", "", ""], correct: -1 }
   ]);
 
   useEffect(() => {
@@ -46,7 +47,7 @@ export default function QuizzesPage() {
   };
 
   const addQuestion = () =>
-    setQuestions([...questions, { question: "", options: ["", "", "", ""], correct: 0 }]);
+    setQuestions([...questions, { question: "", options: ["", "", "", ""], correct: -1 }]);
 
   const removeQuestion = (idx: number) =>
     setQuestions(questions.filter((_, i) => i !== idx));
@@ -63,20 +64,25 @@ export default function QuizzesPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.courseId || !form.title) { toast.error("Fill all required fields"); return; }
-    const invalid = questions.some(q => !q.question || q.options.some(o => !o));
+    const invalid = questions.some(q => !q.question.trim() || q.options.some(o => !o.trim()));
     if (invalid) { toast.error("Fill all question fields and options"); return; }
+    const missingCorrect = findUnansweredQuestion(questions);
+    if (missingCorrect >= 0) {
+      toast.error(`Select the correct answer for question ${missingCorrect + 1}`);
+      return;
+    }
     setSaving(true);
     try {
       await createQuiz({
         courseId: form.courseId,
         lessonId: form.lessonId && form.lessonId !== "none" ? form.lessonId : null,
         title: form.title,
-        questions,
+        questions: questions.map(q => ({ ...q, correct: Number(q.correct) })),
       });
       toast.success("Quiz created!");
       setOpen(false);
       setForm({ courseId: "", lessonId: "none", title: "" });
-      setQuestions([{ question: "", options: ["", "", "", ""], correct: 0 }]);
+      setQuestions([{ question: "", options: ["", "", "", ""], correct: -1 }]);
       const all = await getAllQuizzes();
       const myCourseIds = new Set(courses.map((c: any) => c.id));
       setMyQuizzes(all.filter((q: any) => myCourseIds.has(q.courseId)));
@@ -166,10 +172,23 @@ export default function QuizzesPage() {
                             value={opt}
                             onChange={(e) => updateOption(qIdx, optIdx, e.target.value)}
                           />
+                          {q.correct === optIdx && (
+                            <span className="text-[10px] font-bold uppercase tracking-wide flex-shrink-0" style={{ color: "var(--success)" }}>
+                              Correct
+                            </span>
+                          )}
                         </div>
                       ))}
                     </div>
-                    <p className="text-xs mt-2" style={{ color: "var(--text-secondary)" }}>Click the circle to mark the correct answer</p>
+                    {q.correct < 0 ? (
+                      <p className="text-xs mt-2 font-semibold" style={{ color: "var(--danger)" }}>
+                        Select the correct answer for this question.
+                      </p>
+                    ) : (
+                      <p className="text-xs mt-2" style={{ color: "var(--text-secondary)" }}>
+                        Click the circle next to the correct answer.
+                      </p>
+                    )}
                   </div>
                 ))}
               </div>

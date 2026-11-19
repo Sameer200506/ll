@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getAllQuizzes, getCourse, saveQuizResult } from "@/lib/firestore";
 import { useStaticRouteParam } from "@/lib/useStaticRouteParam";
+import { getCorrectIndex } from "@/lib/quiz";
 import { CheckCircle2, XCircle, ArrowRight, Trophy } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -49,9 +50,13 @@ export default function QuizPlayerPage({ params }: { params: Promise<{ quizId: s
   const handleSubmit = async () => {
     if (!quiz || !user) return;
     const questions = quiz.questions || [];
+    if (questions.some((q: any) => getCorrectIndex(q) < 0)) {
+      toast.error("This quiz is missing an answer key. Please ask your teacher to fix it.");
+      return;
+    }
     let correct = 0;
     questions.forEach((q: any, i: number) => {
-      if (answers[i] === q.correct) correct++;
+      if (answers[i] === getCorrectIndex(q)) correct++;
     });
     setScore(correct);
     setSubmitted(true);
@@ -84,12 +89,14 @@ export default function QuizPlayerPage({ params }: { params: Promise<{ quizId: s
           {/* Answer review */}
           <div className="space-y-4 text-left mb-8">
             {questions.map((q: any, i: number) => {
-              const correct = answers[i] === q.correct;
+              const correctIndex = getCorrectIndex(q);
+              const options: string[] = Array.isArray(q.options) ? q.options : [];
+              const isCorrect = correctIndex >= 0 && answers[i] === correctIndex;
               return (
                 <Card key={i}>
                   <CardContent className="pt-4 pb-4">
                     <div className="flex items-start gap-3">
-                      {correct ? (
+                      {isCorrect ? (
                         <CheckCircle2 className="w-5 h-5 mt-0.5 flex-shrink-0" style={{ color: "var(--success)" }} />
                       ) : (
                         <XCircle className="w-5 h-5 mt-0.5 flex-shrink-0" style={{ color: "var(--danger)" }} />
@@ -97,8 +104,8 @@ export default function QuizPlayerPage({ params }: { params: Promise<{ quizId: s
                       <div>
                         <p className="font-medium text-sm">{q.question}</p>
                         <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
-                          Correct: <span style={{ color: "var(--success)" }}>{q.options[q.correct]}</span>
-                          {!correct && <> · Your answer: <span style={{ color: "var(--danger)" }}>{q.options[answers[i]] ?? "Not answered"}</span></>}
+                          Correct: <span style={{ color: "var(--success)" }}>{options[correctIndex] ?? "—"}</span>
+                          {!isCorrect && <> · Your answer: <span style={{ color: "var(--danger)" }}>{options[answers[i]] ?? "Not answered"}</span></>}
                         </p>
                       </div>
                     </div>
@@ -137,7 +144,7 @@ export default function QuizPlayerPage({ params }: { params: Promise<{ quizId: s
                     {q.question}
                   </p>
                   <div className="space-y-2.5">
-                    {q.options.map((opt: string, j: number) => (
+                    {(q.options || []).map((opt: string, j: number) => (
                       <button
                         key={j}
                         onClick={() => handleSelect(i, j)}

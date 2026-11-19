@@ -4,6 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { CourseThumbnail } from "@/components/courses/CourseThumbnail";
 import { useStaticRouteParam } from "@/lib/useStaticRouteParam";
+import { findUnansweredQuestion, normalizeQuestions, type QuizQuestion } from "@/lib/quiz";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,7 +61,7 @@ function ResourceIcon({ type }: { type: string }) {
 
 interface Question { question: string; options: string[]; correct: number; }
 
-const BLANK_QUESTION: Question = { question: "", options: ["", "", "", ""], correct: 0 };
+const BLANK_QUESTION: Question = { question: "", options: ["", "", "", ""], correct: -1 };
 
 function QuizBuilder({
   courseId,
@@ -78,11 +79,11 @@ function QuizBuilder({
   saving: boolean;
 }) {
   const [title, setTitle] = useState(initial?.title ?? "");
-  const [questions, setQuestions] = useState<Question[]>(
-    initial?.questions?.length ? initial.questions : [{ ...BLANK_QUESTION, options: ["", "", "", ""] }]
+  const [questions, setQuestions] = useState<QuizQuestion[]>(
+    initial?.questions?.length ? normalizeQuestions(initial.questions) : [{ ...BLANK_QUESTION, options: ["", "", "", ""] }]
   );
 
-  const addQ = () => setQuestions((prev) => [...prev, { question: "", options: ["", "", "", ""], correct: 0 }]);
+  const addQ = () => setQuestions((prev) => [...prev, { question: "", options: ["", "", "", ""], correct: -1 }]);
   const removeQ = (i: number) => setQuestions((prev) => prev.filter((_, j) => j !== i));
   const updateQ = (i: number, field: keyof Question, val: any) =>
     setQuestions((prev) => prev.map((q, j) => j === i ? { ...q, [field]: val } : q));
@@ -94,9 +95,18 @@ function QuizBuilder({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) { toast.error("Quiz title required"); return; }
-    const invalid = questions.some((q) => !q.question || q.options.some((o) => !o));
+    const invalid = questions.some((q) => !q.question.trim() || q.options.some((o) => !o.trim()));
     if (invalid) { toast.error("Fill all question fields and options"); return; }
-    await onSave(title, questions, initial?.id);
+    const missingCorrect = findUnansweredQuestion(questions);
+    if (missingCorrect >= 0) {
+      toast.error(`Select the correct answer for question ${missingCorrect + 1}`);
+      return;
+    }
+    await onSave(
+      title.trim(),
+      questions.map((q) => ({ ...q, correct: Number(q.correct) })),
+      initial?.id
+    );
   };
 
   return (
@@ -158,12 +168,23 @@ function QuizBuilder({
                     value={opt}
                     onChange={(e) => updateOpt(qi, oi, e.target.value)}
                   />
+                  {q.correct === oi && (
+                    <span className="text-[10px] font-bold uppercase tracking-wide flex-shrink-0" style={{ color: "var(--success)" }}>
+                      Correct
+                    </span>
+                  )}
                 </div>
               ))}
             </div>
-            <p className="text-xs mt-2" style={{ color: "var(--text-secondary)" }}>
-              Click the circle to mark the correct answer
-            </p>
+            {q.correct < 0 ? (
+              <p className="text-xs mt-2 font-semibold" style={{ color: "var(--danger)" }}>
+                Select the correct answer for this question.
+              </p>
+            ) : (
+              <p className="text-xs mt-2" style={{ color: "var(--text-secondary)" }}>
+                Click the circle next to the correct answer.
+              </p>
+            )}
           </div>
         ))}
       </div>
@@ -486,9 +507,14 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
                 ({lessons.length} lesson{lessons.length !== 1 ? "s" : ""} · {quizzes.length} quiz{quizzes.length !== 1 ? "zes" : ""})
               </span>
             </h2>
-            <Button className="gap-2" onClick={() => setLessonOpen(true)}>
-              <Plus className="w-4 h-4" /> Add Lesson
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" className="gap-2" onClick={() => openNewQuiz(null)}>
+                <ClipboardList className="w-4 h-4" /> Add Quiz
+              </Button>
+              <Button className="gap-2" onClick={() => setLessonOpen(true)}>
+                <Plus className="w-4 h-4" /> Add Lesson
+              </Button>
+            </div>
           </div>
 
           {/* Add lesson dialog */}
